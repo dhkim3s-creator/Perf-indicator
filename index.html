@@ -5,20 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>[2-1] 얼리버드 취업지원 사업실적관리</title>
 
-  <!-- Tailwind (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- React (UMD) -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-
-  <!-- Babel (JSX -> JS in browser) -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <!-- Lucide (브라우저용) -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
-  <!-- Firebase (Compat SDK) -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
@@ -31,7 +23,7 @@
     const { useState, useMemo, useRef } = React;
 
     // =========================
-    // 1) Firebase 초기화
+    // Firebase 초기화
     // =========================
     const firebaseConfig = {
       apiKey: "AIzaSyDp5-SjGHdLRQ7feRoS-RdKsJI4QFUJKQ0",
@@ -53,7 +45,7 @@
     const DB_PATH = "earlyBirdManager/v1";
 
     // =========================
-    // 2) 초기 데이터
+    // 초기 데이터
     // =========================
     const INITIAL_INDICATORS = [
       { id: 1, category: '캡스톤디자인 및 현장실습', name: '캡스톤디자인 및 현장실습 이수학생 수', unit: '명', baseline: 1058, target: 1111, resultSem1: 886, resultSem2: 270, weight: 1.0 },
@@ -74,15 +66,15 @@
     ];
 
     const INITIAL_BUDGET = {
-      total: 665000,     // 천원
-      executed: 334229,  // 천원
+      total: 665000,
+      executed: 334229,
       details: [
         { id: 1, item: '얼리버드 취업지원 운영비', amount: 334229, date: '2025-06-30', type: '집행' }
       ]
     };
 
     // =========================
-    // 3) Lucide 아이콘
+    // 유틸
     // =========================
     function Icon({ name, className }) {
       return <i data-lucide={name} className={className}></i>;
@@ -94,10 +86,12 @@
     }
 
     // =========================
-    // 4) 메인 컴포넌트
+    // 앱
     // =========================
-    function EarlyBirdManager() {
-      const [activeTab, setActiveTab] = useState('budget'); // 예산 탭이 보이게 기본값
+    function App() {
+      // ✅ 기본 탭을 대시보드로 (안 보이는 문제 방지)
+      const [activeTab, setActiveTab] = useState('dashboard');
+
       const [indicators, setIndicators] = useState(INITIAL_INDICATORS);
       const [tasks, setTasks] = useState(INITIAL_TASKS);
       const [budget, setBudget] = useState(INITIAL_BUDGET);
@@ -105,15 +99,15 @@
       const [loading, setLoading] = useState(true);
       const [saveMsg, setSaveMsg] = useState('');
 
-      // ✅ 한글 연속입력 안정화: 등록 입력칸은 ref로 처리(uncontrolled)
+      // 예산 등록 입력(ref 기반: 연속입력 안정화)
       const expenseItemRef = useRef(null);
       const expenseAmountRef = useRef(null);
 
-      // ✅ 수정/삭제 상태
+      // 예산 수정/삭제
       const [editingId, setEditingId] = useState(null);
       const [editDraft, setEditDraft] = useState({ date: '', item: '', amount: '' });
 
-      // --- Firebase에서 불러오기 ---
+      // --- Firebase 로드 ---
       React.useEffect(() => {
         let cancelled = false;
 
@@ -141,17 +135,16 @@
         return () => { cancelled = true; };
       }, []);
 
-      // --- 저장하기 ---
+      // --- 저장 ---
       const saveToFirebase = async () => {
         setSaveMsg('');
         try {
-          const payload = {
+          await db.ref(DB_PATH).set({
             indicators,
             tasks,
             budget,
             updatedAt: new Date().toISOString()
-          };
-          await db.ref(DB_PATH).set(payload);
+          });
           setSaveMsg('✅ 저장 완료');
           setTimeout(() => setSaveMsg(''), 1500);
         } catch (e) {
@@ -161,7 +154,7 @@
         }
       };
 
-      // --- 계산 로직 ---
+      // --- 계산 ---
       const totalBudgetRatio = useMemo(() => {
         return budget.total > 0 ? ((budget.executed / budget.total) * 100).toFixed(1) : "0.0";
       }, [budget]);
@@ -175,11 +168,10 @@
         return mainIndicators.length ? (totalRate / mainIndicators.length).toFixed(1) : "0.0";
       }, [indicators]);
 
-      // ✅ 집행내역 등록 (ref 기반)
+      // --- 예산: 등록 ---
       const addExpense = () => {
         const item = (expenseItemRef.current?.value || '').trim();
-        const amtRaw = (expenseAmountRef.current?.value || '').trim();
-        const amount = toNumSafe(amtRaw);
+        const amount = toNumSafe(expenseAmountRef.current?.value || '');
 
         if (!item || amount <= 0) return;
 
@@ -198,13 +190,12 @@
           ]
         }));
 
-        // 입력 초기화 + 포커스
         if (expenseItemRef.current) expenseItemRef.current.value = '';
         if (expenseAmountRef.current) expenseAmountRef.current.value = '';
-        if (expenseItemRef.current) expenseItemRef.current.focus();
+        expenseItemRef.current?.focus();
       };
 
-      // ✅ 수정 시작
+      // --- 예산: 수정/삭제 ---
       const startEditDetail = (detail) => {
         setEditingId(detail.id);
         setEditDraft({
@@ -220,8 +211,6 @@
       };
 
       const saveEditDetail = () => {
-        if (editingId == null) return;
-
         const newItem = (editDraft.item || '').trim();
         const newDate = (editDraft.date || '').trim();
         const newAmount = toNumSafe(editDraft.amount);
@@ -232,8 +221,7 @@
           const old = prev.details.find(d => d.id === editingId);
           if (!old) return prev;
 
-          const oldAmount = Number(old.amount) || 0;
-          const diff = newAmount - oldAmount;
+          const diff = newAmount - (Number(old.amount) || 0);
 
           return {
             ...prev,
@@ -248,10 +236,8 @@
         cancelEditDetail();
       };
 
-      // ✅ 삭제
       const deleteDetail = (id) => {
-        const ok = confirm('해당 집행내역을 삭제할까요?');
-        if (!ok) return;
+        if (!confirm('해당 집행내역을 삭제할까요?')) return;
 
         setBudget(prev => {
           const target = prev.details.find(d => d.id === id);
@@ -268,12 +254,14 @@
         if (editingId === id) cancelEditDetail();
       };
 
-      // 렌더될 때마다 lucide 아이콘 생성/갱신
+      // Lucide 갱신
       React.useEffect(() => {
-        if (window.lucide) window.lucide.createIcons();
+        try { window.lucide?.createIcons(); } catch (e) {}
       }, [activeTab, indicators, tasks, budget, loading, editingId, editDraft]);
 
-      // --- 뷰들 (예산 외는 기존 형태 유지) ---
+      // =========================
+      // 뷰: 대시보드
+      // =========================
       const DashboardView = () => (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -330,9 +318,35 @@
               </div>
             </div>
           </div>
+
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h3 className="text-lg font-bold text-slate-800 mb-4">지표별 달성 현황</h3>
+            <div className="space-y-4">
+              {indicators.map(ind => {
+                const total = (Number(ind.resultSem1) || 0) + (Number(ind.resultSem2) || 0);
+                const rate = ind.target > 0 ? ((total / ind.target) * 100).toFixed(1) : 0;
+                return (
+                  <div key={ind.id}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="font-medium text-slate-700">{ind.name}</span>
+                      <span className="text-slate-500">{total.toLocaleString()} / {ind.target.toLocaleString()} ({rate}%)</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-2.5">
+                      <div className={`h-2.5 rounded-full ${Number(rate) >= 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
+                        style={{ width: `${Math.min(Number(rate), 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       );
 
+      // =========================
+      // 뷰: 성과지표
+      // =========================
       const PerformanceView = () => (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex justify-between items-center">
@@ -342,14 +356,15 @@
             </div>
             <div className="flex items-center gap-3">
               {saveMsg && <span className="text-sm text-slate-500">{saveMsg}</span>}
-              <button onClick={saveToFirebase} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <button onClick={saveToFirebase}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                 <Icon name="save" className="w-4 h-4" /> 저장하기
               </button>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left min-w-[900px]">
+            <table className="w-full text-sm text-left min-w-[980px]">
               <thead className="bg-slate-50 text-slate-600 font-medium">
                 <tr>
                   <th className="px-6 py-4">지표명</th>
@@ -375,18 +390,20 @@
                       </td>
                       <td className="px-4 py-4 text-center text-slate-500">{ind.unit}</td>
                       <td className="px-4 py-4 text-right text-slate-600">{ind.target.toLocaleString()}</td>
+
                       <td className="px-4 py-4 text-right bg-blue-50/30">
-                        <input type="number" className="w-20 text-right p-1 border border-slate-300 rounded"
+                        <input type="number" className="w-24 text-right p-1 border border-slate-300 rounded"
                           value={ind.resultSem1}
                           onChange={(e) => setIndicators(prev => prev.map(x => x.id === ind.id ? { ...x, resultSem1: Number(e.target.value) } : x))}
                         />
                       </td>
                       <td className="px-4 py-4 text-right bg-blue-50/30">
-                        <input type="number" className="w-20 text-right p-1 border border-slate-300 rounded"
+                        <input type="number" className="w-24 text-right p-1 border border-slate-300 rounded"
                           value={ind.resultSem2}
                           onChange={(e) => setIndicators(prev => prev.map(x => x.id === ind.id ? { ...x, resultSem2: Number(e.target.value) } : x))}
                         />
                       </td>
+
                       <td className="px-4 py-4 text-right font-bold text-indigo-700 bg-indigo-50/30">{total.toLocaleString()}</td>
                       <td className="px-4 py-4 text-right font-bold bg-indigo-50/30">
                         <span className={`${Number(rate) >= 100 ? 'text-emerald-600' : 'text-orange-500'}`}>{rate}%</span>
@@ -400,6 +417,9 @@
         </div>
       );
 
+      // =========================
+      // 뷰: 세부과제
+      // =========================
       const TasksView = () => (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200">
           <div className="p-6 border-b border-slate-100 flex items-center justify-between">
@@ -409,7 +429,8 @@
             </div>
             <div className="flex items-center gap-3">
               {saveMsg && <span className="text-sm text-slate-500">{saveMsg}</span>}
-              <button onClick={saveToFirebase} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <button onClick={saveToFirebase}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                 <Icon name="save" className="w-4 h-4" /> 저장하기
               </button>
             </div>
@@ -450,7 +471,9 @@
         </div>
       );
 
-      // ✅✅✅ 여기(예산 화면)에서 "관리(수정/삭제)" 컬럼을 강제로 추가했습니다.
+      // =========================
+      // 뷰: 예산관리
+      // =========================
       const BudgetView = () => (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
@@ -459,7 +482,8 @@
                 <h2 className="text-xl font-bold text-slate-800">예산 집행 현황</h2>
                 <div className="flex items-center gap-3">
                   {saveMsg && <span className="text-sm text-slate-500">{saveMsg}</span>}
-                  <button onClick={saveToFirebase} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                  <button onClick={saveToFirebase}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                     <Icon name="save" className="w-4 h-4" /> 저장하기
                   </button>
                 </div>
@@ -471,7 +495,7 @@
                   <div className="text-lg font-bold text-slate-800">{budget.total.toLocaleString()} 천원</div>
                 </div>
                 <div className="p-4 bg-blue-50 rounded-lg text-center border border-blue-100">
-                  <div className="text-sm text-blue-600 mb-1">집행액 (승인+지출)</div>
+                  <div className="text-sm text-blue-600 mb-1">집행액</div>
                   <div className="text-lg font-bold text-blue-700">{budget.executed.toLocaleString()} 천원</div>
                 </div>
                 <div className="p-4 bg-emerald-50 rounded-lg text-center border border-emerald-100">
@@ -481,8 +505,6 @@
               </div>
 
               <h3 className="text-sm font-bold text-slate-700 mb-3">집행 내역 등록</h3>
-
-              {/* ✅ ref 기반: 한글 연속입력 끊김 방지 */}
               <div className="flex gap-2 mb-2">
                 <input
                   ref={expenseItemRef}
@@ -502,7 +524,8 @@
                   spellCheck={false}
                   onKeyDown={(e) => { if (e.key === 'Enter') addExpense(); }}
                 />
-                <button onClick={addExpense} className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 text-sm font-medium">
+                <button onClick={addExpense}
+                  className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 text-sm font-medium">
                   등록
                 </button>
               </div>
@@ -515,14 +538,12 @@
               </div>
             </div>
 
-            {/* ✅ overflow-hidden 제거 + overflow-x-auto 적용 */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200">
               <div className="p-4 border-b border-slate-100 bg-slate-50">
                 <h3 className="font-semibold text-slate-700">최근 집행 내역 (수정/삭제)</h3>
               </div>
 
               <div className="overflow-x-auto">
-                {/* ✅ min-w로 '관리' 컬럼이 절대 안 잘리게 */}
                 <table className="w-full text-sm min-w-[980px]">
                   <thead className="bg-white text-slate-500 border-b border-slate-100">
                     <tr>
@@ -530,7 +551,6 @@
                       <th className="px-6 py-3 text-left">항목</th>
                       <th className="px-6 py-3 text-right w-[160px]">금액 (천원)</th>
                       <th className="px-6 py-3 text-center w-[90px]">구분</th>
-                      {/* ✅✅✅ 관리 컬럼 추가 */}
                       <th className="px-6 py-3 text-center w-[220px]">관리</th>
                     </tr>
                   </thead>
@@ -538,14 +558,11 @@
                   <tbody className="divide-y divide-slate-100">
                     {budget.details.map((detail) => {
                       const isEditing = editingId === detail.id;
-
                       return (
                         <tr key={detail.id} className={isEditing ? "bg-yellow-50/60" : ""}>
                           <td className="px-6 py-3 text-slate-600">
                             {isEditing ? (
-                              <input
-                                type="date"
-                                className="p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                              <input type="date" className="p-1 border border-slate-300 rounded"
                                 value={editDraft.date}
                                 onChange={(e) => setEditDraft(prev => ({ ...prev, date: e.target.value }))}
                               />
@@ -554,9 +571,7 @@
 
                           <td className="px-6 py-3 text-slate-800 font-medium">
                             {isEditing ? (
-                              <input
-                                type="text"
-                                className="w-full p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                              <input type="text" className="w-full p-1 border border-slate-300 rounded"
                                 value={editDraft.item}
                                 onChange={(e) => setEditDraft(prev => ({ ...prev, item: e.target.value }))}
                               />
@@ -565,10 +580,7 @@
 
                           <td className="px-6 py-3 text-right text-slate-600">
                             {isEditing ? (
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                className="w-28 text-right p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                              <input type="text" inputMode="numeric" className="w-28 text-right p-1 border border-slate-300 rounded"
                                 value={editDraft.amount}
                                 onChange={(e) => setEditDraft(prev => ({ ...prev, amount: e.target.value }))}
                               />
@@ -581,37 +593,20 @@
                             </span>
                           </td>
 
-                          {/* ✅✅✅ 수정/삭제 버튼: 반드시 보이게 */}
                           <td className="px-6 py-3 text-center">
                             {isEditing ? (
                               <div className="flex justify-center gap-2">
-                                <button
-                                  onClick={saveEditDetail}
-                                  className="px-3 py-1.5 text-xs rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
-                                >
-                                  저장
-                                </button>
-                                <button
-                                  onClick={cancelEditDetail}
-                                  className="px-3 py-1.5 text-xs rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300"
-                                >
-                                  취소
-                                </button>
+                                <button onClick={saveEditDetail}
+                                  className="px-3 py-1.5 text-xs rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">저장</button>
+                                <button onClick={cancelEditDetail}
+                                  className="px-3 py-1.5 text-xs rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300">취소</button>
                               </div>
                             ) : (
                               <div className="flex justify-center gap-2">
-                                <button
-                                  onClick={() => startEditDetail(detail)}
-                                  className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-                                >
-                                  수정
-                                </button>
-                                <button
-                                  onClick={() => deleteDetail(detail.id)}
-                                  className="px-3 py-1.5 text-xs rounded-lg bg-rose-600 text-white hover:bg-rose-700"
-                                >
-                                  삭제
-                                </button>
+                                <button onClick={() => startEditDetail(detail)}
+                                  className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700">수정</button>
+                                <button onClick={() => deleteDetail(detail.id)}
+                                  className="px-3 py-1.5 text-xs rounded-lg bg-rose-600 text-white hover:bg-rose-700">삭제</button>
                               </div>
                             )}
                           </td>
@@ -623,7 +618,7 @@
               </div>
 
               <div className="p-3 text-xs text-slate-400 border-t border-slate-100">
-                ※ 화면이 좁으면 가로 스크롤로 “관리(수정/삭제)” 버튼이 항상 표시됩니다.
+                ※ 화면이 좁으면 가로 스크롤로 “관리(수정/삭제)” 버튼이 표시됩니다.
               </div>
             </div>
           </div>
@@ -705,7 +700,7 @@
     }
 
     const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<EarlyBirdManager />);
+    root.render(<App />);
   </script>
 </body>
 </html>
