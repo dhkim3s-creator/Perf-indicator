@@ -89,7 +89,6 @@
     // 앱
     // =========================
     function App() {
-      // ✅ 기본 탭을 대시보드로 (안 보이는 문제 방지)
       const [activeTab, setActiveTab] = useState('dashboard');
 
       const [indicators, setIndicators] = useState(INITIAL_INDICATORS);
@@ -103,7 +102,11 @@
       const expenseItemRef = useRef(null);
       const expenseAmountRef = useRef(null);
 
-      // 예산 수정/삭제
+      // 총예산 수정
+      const [isEditingTotal, setIsEditingTotal] = useState(false);
+      const [totalDraft, setTotalDraft] = useState(String(INITIAL_BUDGET.total));
+
+      // 집행내역 수정/삭제
       const [editingId, setEditingId] = useState(null);
       const [editDraft, setEditDraft] = useState({ date: '', item: '', amount: '' });
 
@@ -123,7 +126,10 @@
             if (!cancelled) {
               if (Array.isArray(data?.indicators)) setIndicators(data.indicators);
               if (Array.isArray(data?.tasks)) setTasks(data.tasks);
-              if (data?.budget && typeof data.budget === 'object') setBudget(data.budget);
+              if (data?.budget && typeof data.budget === 'object') {
+                setBudget(data.budget);
+                setTotalDraft(String(data.budget.total ?? 0));
+              }
               setLoading(false);
             }
           } catch (e) {
@@ -178,6 +184,7 @@
         setBudget(prev => ({
           ...prev,
           executed: prev.executed + amount,
+          total: Math.max(prev.total, prev.executed + amount), // 총예산이 집행액보다 작아지지 않게 방지
           details: [
             ...prev.details,
             {
@@ -195,7 +202,29 @@
         expenseItemRef.current?.focus();
       };
 
-      // --- 예산: 수정/삭제 ---
+      // --- 총예산: 수정 시작/저장/취소 ---
+      const startEditTotal = () => {
+        setTotalDraft(String(budget.total ?? 0));
+        setIsEditingTotal(true);
+      };
+
+      const cancelEditTotal = () => {
+        setTotalDraft(String(budget.total ?? 0));
+        setIsEditingTotal(false);
+      };
+
+      const saveEditTotal = () => {
+        const nextTotal = toNumSafe(totalDraft);
+
+        // 총예산은 집행액보다 작으면 안됨(잔액/집행률 깨짐 방지)
+        const safeTotal = Math.max(nextTotal, budget.executed);
+
+        setBudget(prev => ({ ...prev, total: safeTotal }));
+        setTotalDraft(String(safeTotal));
+        setIsEditingTotal(false);
+      };
+
+      // --- 집행내역: 수정/삭제 ---
       const startEditDetail = (detail) => {
         setEditingId(detail.id);
         setEditDraft({
@@ -222,10 +251,12 @@
           if (!old) return prev;
 
           const diff = newAmount - (Number(old.amount) || 0);
+          const nextExecuted = prev.executed + diff;
 
           return {
             ...prev,
-            executed: prev.executed + diff,
+            executed: nextExecuted,
+            total: Math.max(prev.total, nextExecuted), // 총예산 < 집행액 방지
             details: prev.details.map(d => d.id === editingId
               ? { ...d, item: newItem, date: newDate, amount: newAmount }
               : d
@@ -244,9 +275,12 @@
           if (!target) return prev;
 
           const amt = Number(target.amount) || 0;
+          const nextExecuted = Math.max(0, prev.executed - amt);
+
           return {
             ...prev,
-            executed: Math.max(0, prev.executed - amt),
+            executed: nextExecuted,
+            total: Math.max(prev.total, nextExecuted), // 총예산 < 집행액 방지
             details: prev.details.filter(d => d.id !== id)
           };
         });
@@ -257,7 +291,7 @@
       // Lucide 갱신
       React.useEffect(() => {
         try { window.lucide?.createIcons(); } catch (e) {}
-      }, [activeTab, indicators, tasks, budget, loading, editingId, editDraft]);
+      }, [activeTab, indicators, tasks, budget, loading, editingId, editDraft, isEditingTotal, totalDraft]);
 
       // =========================
       // 뷰: 대시보드
@@ -472,7 +506,7 @@
       );
 
       // =========================
-      // 뷰: 예산관리
+      // 뷰: 예산관리 (총예산 수정 포함)
       // =========================
       const BudgetView = () => (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -490,14 +524,55 @@
               </div>
 
               <div className="grid grid-cols-3 gap-4 mb-8">
+                {/* 총 예산 (수정 가능) */}
                 <div className="p-4 bg-slate-50 rounded-lg text-center">
-                  <div className="text-sm text-slate-500 mb-1">총 예산</div>
-                  <div className="text-lg font-bold text-slate-800">{budget.total.toLocaleString()} 천원</div>
+                  <div className="text-sm text-slate-500 mb-2 flex items-center justify-center gap-2">
+                    <span>총 예산</span>
+                    {!isEditingTotal ? (
+                      <button
+                        onClick={startEditTotal}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                        title="총 예산 수정"
+                      >
+                        <Icon name="pencil" className="w-3 h-3" /> 수정
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {!isEditingTotal ? (
+                    <div className="text-lg font-bold text-slate-800">{budget.total.toLocaleString()} 천원</div>
+                  ) : (
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        className="w-full p-2 border border-slate-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        value={totalDraft}
+                        onChange={(e) => setTotalDraft(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') saveEditTotal(); }}
+                      />
+                      <div className="flex justify-center gap-2">
+                        <button
+                          onClick={saveEditTotal}
+                          className="px-3 py-1.5 text-xs rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
+                        >저장</button>
+                        <button
+                          onClick={cancelEditTotal}
+                          className="px-3 py-1.5 text-xs rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300"
+                        >취소</button>
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        ※ 집행액({budget.executed.toLocaleString()})보다 작게 입력하면 자동으로 집행액으로 보정됩니다.
+                      </div>
+                    </div>
+                  )}
                 </div>
+
                 <div className="p-4 bg-blue-50 rounded-lg text-center border border-blue-100">
                   <div className="text-sm text-blue-600 mb-1">집행액</div>
                   <div className="text-lg font-bold text-blue-700">{budget.executed.toLocaleString()} 천원</div>
                 </div>
+
                 <div className="p-4 bg-emerald-50 rounded-lg text-center border border-emerald-100">
                   <div className="text-sm text-emerald-600 mb-1">잔액</div>
                   <div className="text-lg font-bold text-emerald-700">{(budget.total - budget.executed).toLocaleString()} 천원</div>
