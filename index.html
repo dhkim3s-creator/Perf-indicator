@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>얼리버드 취업지원 사업실적관리</title>
+  <title>[2-1] 얼리버드 취업지원 사업실적관리</title>
 
   <!-- Tailwind (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -97,7 +97,9 @@
       const [indicators, setIndicators] = useState(INITIAL_INDICATORS);
       const [tasks, setTasks] = useState(INITIAL_TASKS);
       const [budget, setBudget] = useState(INITIAL_BUDGET);
-      const [newExpense, setNewExpense] = useState({ item: '', amount: 0 });
+
+      // ✅ amount를 string으로 유지 (연속 입력 문제 해결)
+      const [newExpense, setNewExpense] = useState({ item: '', amount: '' });
 
       const [loading, setLoading] = useState(true);
       const [saveMsg, setSaveMsg] = useState('');
@@ -152,7 +154,7 @@
 
       // --- 계산 로직 ---
       const totalBudgetRatio = useMemo(() => {
-        return ((budget.executed / budget.total) * 100).toFixed(1);
+        return budget.total > 0 ? ((budget.executed / budget.total) * 100).toFixed(1) : "0.0";
       }, [budget]);
 
       const averageAchievement = useMemo(() => {
@@ -176,25 +178,27 @@
         ));
       };
 
+      // ✅ 집행내역 등록: 입력은 string, 등록 시에만 Number로 변환
       const addExpense = () => {
-        if (!newExpense.item || Number(newExpense.amount) <= 0) return;
-        const expenseAmount = Number(newExpense.amount);
+        const amountNum = Number(String(newExpense.amount).replace(/,/g, ''));
+        if (!newExpense.item.trim() || !Number.isFinite(amountNum) || amountNum <= 0) return;
 
         setBudget(prev => ({
           ...prev,
-          executed: prev.executed + expenseAmount,
+          executed: prev.executed + amountNum,
           details: [
             ...prev.details,
             {
               id: Date.now(),
-              item: newExpense.item,
-              amount: expenseAmount,
+              item: newExpense.item.trim(),
+              amount: amountNum,
               date: new Date().toISOString().split('T')[0],
               type: '집행'
             }
           ]
         }));
-        setNewExpense({ item: '', amount: 0 });
+
+        setNewExpense({ item: '', amount: '' });
       };
 
       // 렌더될 때마다 lucide 아이콘 생성/갱신
@@ -461,15 +465,25 @@
                   placeholder="항목명 (예: 캡스톤 재료비)"
                   className="flex-1 p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
                   value={newExpense.item}
-                  onChange={(e) => setNewExpense({ ...newExpense, item: e.target.value })}
+                  onChange={(e) => setNewExpense(prev => ({ ...prev, item: e.target.value }))}
                 />
+
+                {/* ✅ 연속 입력 안정화: type=text + inputMode=numeric + string state */}
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   placeholder="금액 (천원)"
                   className="w-32 p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-                  value={newExpense.amount || ''}
-                  onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
+                  value={newExpense.amount}
+                  onChange={(e) => {
+                    const onlyNums = e.target.value.replace(/[^\d]/g, '');
+                    setNewExpense(prev => ({ ...prev, amount: onlyNums }));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') addExpense();
+                  }}
                 />
+
                 <button
                   onClick={addExpense}
                   className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 text-sm font-medium"
