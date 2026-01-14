@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>[2-1] 얼리버드 취업지원 사업실적관리</title>
 
-  <!-- Tailwind (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
 
   <style>
@@ -14,7 +13,6 @@
 </head>
 
 <body class="bg-slate-50">
-  <!-- 부팅 패널 -->
   <div id="boot" style="padding:16px; color:#334155;">
     <div style="max-width:900px; margin:0 auto;">
       <div style="font-weight:700; font-size:18px;">[2-1] 얼리버드 취업지원 사업실적관리</div>
@@ -53,16 +51,14 @@
         return new Promise((resolve, reject) => {
           const s = document.createElement('script');
           s.src = src;
-          s.async = false; // 순서 보장
+          s.async = false;
           s.onload = () => resolve();
           s.onerror = () => reject(new Error("스크립트 로드 실패: " + src));
           document.head.appendChild(s);
         });
       }
 
-      // -------------------------
-      // Firebase 설정
-      // -------------------------
+      // Firebase
       const firebaseConfig = {
         apiKey: "AIzaSyDp5-SjGHdLRQ7feRoS-RdKsJI4QFUJKQ0",
         authDomain: "perf-indicator.firebaseapp.com",
@@ -75,9 +71,7 @@
       };
       const DB_PATH = "earlyBirdManager/v1";
 
-      // -------------------------
-      // 초기 데이터
-      // -------------------------
+      // Initial data
       const INITIAL_INDICATORS = [
         { id: 1, category: '캡스톤디자인 및 현장실습', name: '캡스톤디자인 및 현장실습 이수학생 수', unit: '명', baseline: 1058, target: 1111, resultSem1: 886, resultSem2: 270, weight: 1.0 },
         { id: 2, category: '캡스톤디자인 및 현장실습', name: '소계 (캡스톤디자인)', unit: '명', baseline: 820, target: 861, resultSem1: 557, resultSem2: 0, weight: 0 },
@@ -97,30 +91,24 @@
       ];
 
       const INITIAL_BUDGET = {
-        total: 665000,     // 천원
-        executed: 334229,  // 천원
+        total: 665000,
+        executed: 334229,
         details: [
           { id: 1, item: '얼리버드 취업지원 운영비', amount: 334229, date: '2025-06-30', type: '집행' }
         ]
       };
 
-      // -------------------------
-      // JSX 없이 helper
-      // -------------------------
-      function h(type, props, ...children) {
-        return React.createElement(type, props, ...children);
-      }
-      function Icon({ name, className }) {
-        return h("i", { "data-lucide": name, className: className || "" });
+      // Helpers
+      function h(type, props, ...children) { return React.createElement(type, props, ...children); }
+      function Icon({ name, className }) { return h("i", { "data-lucide": name, className: className || "" }); }
+      function toNumberSafe(v) {
+        const n = Number(String(v ?? "").replace(/[^\d]/g, ''));
+        return Number.isFinite(n) ? n : 0;
       }
 
-      // ============================================================
-      // ✅ View 컴포넌트들: 반드시 "바깥(전역)"에 둬서 타입이 고정되게!
-      // ============================================================
-
+      // Views (outside component to avoid IME issues)
       function DashboardView(props) {
         const { indicators, tasks, budget, totalBudgetRatio, averageAchievement } = props;
-
         return h("div", { className: "space-y-6" },
           h("div", { className: "grid grid-cols-1 md:grid-cols-3 gap-4" },
 
@@ -175,28 +163,6 @@
                   h("span", { className: "font-bold text-slate-400" }, tasks.filter(t => t.status === 'Planned').length + "건")
                 )
               )
-            )
-          ),
-
-          h("div", { className: "bg-white p-6 rounded-xl shadow-sm border border-slate-200" },
-            h("h3", { className: "text-lg font-bold text-slate-800 mb-4" }, "지표별 달성 현황"),
-            h("div", { className: "space-y-4" },
-              indicators.slice(0, 4).map(ind => {
-                const total = (Number(ind.resultSem1) || 0) + (Number(ind.resultSem2) || 0);
-                const rate = ind.target > 0 ? ((total / ind.target) * 100).toFixed(1) : "0.0";
-                return h("div", { key: ind.id },
-                  h("div", { className: "flex justify-between text-sm mb-1" },
-                    h("span", { className: "font-medium text-slate-700" }, ind.name),
-                    h("span", { className: "text-slate-500" }, `${total.toLocaleString()} / ${ind.target.toLocaleString()} (${rate}%)`)
-                  ),
-                  h("div", { className: "w-full bg-slate-100 rounded-full h-2.5" },
-                    h("div", {
-                      className: "h-2.5 rounded-full " + (Number(rate) >= 100 ? "bg-emerald-500" : "bg-blue-500"),
-                      style: { width: Math.min(Number(rate), 100) + "%" }
-                    })
-                  )
-                );
-              })
             )
           )
         );
@@ -335,10 +301,12 @@
         );
       }
 
+      // ✅ BudgetView: 수정/삭제 기능 추가
       function BudgetView(props) {
         const {
           budget, totalBudgetRatio, saveToFirebase, saveMsg,
-          itemRef, amountRef, addExpense
+          itemRef, amountRef, addExpense,
+          editingId, editDraft, startEdit, cancelEdit, changeEdit, saveEdit, deleteDetail
         } = props;
 
         return h("div", { className: "grid grid-cols-1 lg:grid-cols-3 gap-6" },
@@ -375,8 +343,7 @@
               ),
 
               h("h3", { className: "text-sm font-bold text-slate-700 mb-3" }, "집행 내역 등록"),
-              h("div", { className: "flex gap-2 mb-6" },
-                // ✅ IME 끊김 방지: uncontrolled + ref, onChange 없음
+              h("div", { className: "flex gap-2 mb-2" },
                 h("input", {
                   ref: itemRef,
                   type: "text",
@@ -399,7 +366,8 @@
                   onClick: addExpense,
                   className: "px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 text-sm font-medium"
                 }, "등록")
-              )
+              ),
+              h("p", { className: "text-xs text-slate-400" }, "※ 등록 후 오류가 있으면 아래 ‘최근 집행 내역’에서 수정/삭제 가능합니다.")
             ),
 
             h("div", { className: "bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" },
@@ -412,20 +380,84 @@
                     h("th", { className: "px-6 py-3 text-left" }, "일자"),
                     h("th", { className: "px-6 py-3 text-left" }, "항목"),
                     h("th", { className: "px-6 py-3 text-right" }, "금액 (천원)"),
-                    h("th", { className: "px-6 py-3 text-center" }, "구분")
+                    h("th", { className: "px-6 py-3 text-center" }, "구분"),
+                    h("th", { className: "px-6 py-3 text-center" }, "관리")
                   )
                 ),
                 h("tbody", { className: "divide-y divide-slate-100" },
-                  budget.details.map(d => (
-                    h("tr", { key: d.id },
-                      h("td", { className: "px-6 py-3 text-slate-600" }, d.date),
-                      h("td", { className: "px-6 py-3 text-slate-800 font-medium" }, d.item),
-                      h("td", { className: "px-6 py-3 text-right text-slate-600" }, d.amount.toLocaleString()),
+                  budget.details.map(d => {
+                    const isEditing = editingId === d.id;
+
+                    return h("tr", { key: d.id, className: isEditing ? "bg-yellow-50/50" : "" },
+
+                      // date
+                      h("td", { className: "px-6 py-3 text-slate-600" },
+                        isEditing
+                          ? h("input", {
+                              type: "date",
+                              className: "p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm",
+                              value: editDraft.date || "",
+                              onChange: (e) => changeEdit("date", e.target.value)
+                            })
+                          : d.date
+                      ),
+
+                      // item
+                      h("td", { className: "px-6 py-3 text-slate-800 font-medium" },
+                        isEditing
+                          ? h("input", {
+                              type: "text",
+                              className: "w-full p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm",
+                              value: editDraft.item || "",
+                              onChange: (e) => changeEdit("item", e.target.value)
+                            })
+                          : d.item
+                      ),
+
+                      // amount
+                      h("td", { className: "px-6 py-3 text-right text-slate-600" },
+                        isEditing
+                          ? h("input", {
+                              type: "text",
+                              inputMode: "numeric",
+                              className: "w-28 text-right p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm",
+                              value: String(editDraft.amount ?? ""),
+                              onChange: (e) => changeEdit("amount", e.target.value)
+                            })
+                          : d.amount.toLocaleString()
+                      ),
+
+                      // type
                       h("td", { className: "px-6 py-3 text-center" },
                         h("span", { className: "px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs" }, d.type)
+                      ),
+
+                      // actions
+                      h("td", { className: "px-6 py-3 text-center" },
+                        isEditing
+                          ? h("div", { className: "flex justify-center gap-2" },
+                              h("button", {
+                                onClick: saveEdit,
+                                className: "px-3 py-1.5 text-xs rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
+                              }, "저장"),
+                              h("button", {
+                                onClick: cancelEdit,
+                                className: "px-3 py-1.5 text-xs rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300"
+                              }, "취소")
+                            )
+                          : h("div", { className: "flex justify-center gap-2" },
+                              h("button", {
+                                onClick: () => startEdit(d),
+                                className: "px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                              }, "수정"),
+                              h("button", {
+                                onClick: () => deleteDetail(d.id),
+                                className: "px-3 py-1.5 text-xs rounded-lg bg-rose-600 text-white hover:bg-rose-700"
+                              }, "삭제")
+                            )
                       )
-                    )
-                  ))
+                    );
+                  })
                 )
               )
             )
@@ -450,9 +482,7 @@
         );
       }
 
-      // -------------------------
-      // 메인 컴포넌트
-      // -------------------------
+      // App
       function EarlyBirdManager() {
         const { useState, useEffect, useMemo, useRef } = React;
 
@@ -463,15 +493,18 @@
         const [loading, setLoading] = useState(true);
         const [saveMsg, setSaveMsg] = useState('');
 
-        // ✅ IME 끊김 방지: 예산 입력은 ref 기반
+        // ✅ IME safe inputs
         const itemRef = useRef(null);
         const amountRef = useRef(null);
+
+        // ✅ edit state
+        const [editingId, setEditingId] = useState(null);
+        const [editDraft, setEditDraft] = useState({ date: "", item: "", amount: "" });
 
         useEffect(() => {
           (async () => {
             try {
-              const db = firebase.database();
-              const snap = await db.ref(DB_PATH).get();
+              const snap = await firebase.database().ref(DB_PATH).get();
               if (!snap.exists()) { setLoading(false); return; }
               const data = snap.val();
               if (Array.isArray(data?.indicators)) setIndicators(data.indicators);
@@ -487,7 +520,7 @@
 
         useEffect(() => {
           if (window.lucide) window.lucide.createIcons();
-        }, [activeTab, loading, indicators, tasks, budget]);
+        }, [activeTab, loading, indicators, tasks, budget, editingId, editDraft]);
 
         const totalBudgetRatio = useMemo(() => {
           return budget.total > 0 ? ((budget.executed / budget.total) * 100).toFixed(1) : "0.0";
@@ -525,12 +558,12 @@
           setTasks(prev => prev.map(task => task.id === id ? { ...task, status: newStatus } : task));
         };
 
+        // ✅ add expense
         const addExpense = () => {
           const item = (itemRef.current?.value || '').trim();
           const raw = (amountRef.current?.value || '').trim();
-          const amount = Number(raw.replace(/[^\d]/g, ''));
-
-          if (!item || !Number.isFinite(amount) || amount <= 0) return;
+          const amount = toNumberSafe(raw);
+          if (!item || amount <= 0) return;
 
           setBudget(prev => ({
             ...prev,
@@ -544,6 +577,79 @@
           if (itemRef.current) itemRef.current.value = '';
           if (amountRef.current) amountRef.current.value = '';
           if (itemRef.current) itemRef.current.focus();
+        };
+
+        // ✅ start edit
+        const startEdit = (detail) => {
+          setEditingId(detail.id);
+          setEditDraft({
+            date: detail.date || "",
+            item: detail.item || "",
+            amount: String(detail.amount ?? "")
+          });
+        };
+
+        const cancelEdit = () => {
+          setEditingId(null);
+          setEditDraft({ date: "", item: "", amount: "" });
+        };
+
+        const changeEdit = (field, value) => {
+          // amount는 숫자만 유지(입력은 자유, 저장 시 숫자화)
+          setEditDraft(prev => ({ ...prev, [field]: value }));
+        };
+
+        // ✅ save edit: executed 차액 반영
+        const saveEdit = () => {
+          if (editingId == null) return;
+
+          const newItem = (editDraft.item || "").trim();
+          const newDate = (editDraft.date || "").trim();
+          const newAmount = toNumberSafe(editDraft.amount);
+
+          if (!newItem || !newDate || newAmount <= 0) return;
+
+          setBudget(prev => {
+            const old = prev.details.find(x => x.id === editingId);
+            if (!old) return prev;
+
+            const oldAmount = Number(old.amount) || 0;
+            const diff = newAmount - oldAmount;
+
+            const nextDetails = prev.details.map(x =>
+              x.id === editingId
+                ? { ...x, item: newItem, date: newDate, amount: newAmount }
+                : x
+            );
+
+            return {
+              ...prev,
+              executed: prev.executed + diff,
+              details: nextDetails
+            };
+          });
+
+          cancelEdit();
+        };
+
+        // ✅ delete: executed 차감
+        const deleteDetail = (id) => {
+          // 편집 중인 행 삭제 시 편집도 종료
+          setBudget(prev => {
+            const target = prev.details.find(x => x.id === id);
+            if (!target) return prev;
+
+            const amt = Number(target.amount) || 0;
+            const nextDetails = prev.details.filter(x => x.id !== id);
+
+            return {
+              ...prev,
+              executed: Math.max(0, prev.executed - amt),
+              details: nextDetails
+            };
+          });
+
+          if (editingId === id) cancelEdit();
         };
 
         const navItems = [
@@ -563,7 +669,11 @@
         } else if (activeTab === 'tasks') {
           content = h(TasksView, { tasks, handleTaskStatusChange, saveToFirebase, saveMsg });
         } else {
-          content = h(BudgetView, { budget, totalBudgetRatio, saveToFirebase, saveMsg, itemRef, amountRef, addExpense });
+          content = h(BudgetView, {
+            budget, totalBudgetRatio, saveToFirebase, saveMsg,
+            itemRef, amountRef, addExpense,
+            editingId, editDraft, startEdit, cancelEdit, changeEdit, saveEdit, deleteDetail
+          });
         }
 
         return h("div", { className: "min-h-screen bg-slate-50 font-sans text-slate-900" },
@@ -599,9 +709,7 @@
         );
       }
 
-      // -------------------------
-      // 부팅: 라이브러리 순차 로딩 후 실행
-      // -------------------------
+      // Boot
       (async () => {
         try {
           ok("외부 라이브러리 로딩 시작...");
