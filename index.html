@@ -5,23 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>[2-1] 얼리버드 취업지원 사업실적관리</title>
 
-  <!-- Tailwind (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- React (UMD) -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-
-  <!-- Babel (JSX -> JS in browser) -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <!-- Lucide (브라우저용) -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-
-  <!-- Firebase (Compat SDK) -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
 
   <style>
     body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", sans-serif; }
@@ -29,918 +13,738 @@
 </head>
 
 <body class="bg-slate-50">
+  <div id="boot" style="padding:16px; color:#334155;">
+    <div style="max-width:900px; margin:0 auto;">
+      <div style="font-weight:700; font-size:18px;">[2-1] 얼리버드 취업지원 사업실적관리</div>
+      <div id="status" style="margin-top:8px; font-size:14px;">부팅 중...</div>
+      <pre id="log" style="margin-top:10px; padding:12px; background:#fff; border:1px solid #e2e8f0; border-radius:10px; white-space:pre-wrap; overflow:auto;"></pre>
+    </div>
+  </div>
+
   <div id="root"></div>
 
-  <script type="text/babel">
-    const { useState, useMemo, useRef } = React;
+  <script>
+    (function () {
+      const $status = document.getElementById('status');
+      const $log = document.getElementById('log');
 
-    // =========================
-    // 1) Firebase 초기화
-    // =========================
-    const firebaseConfig = {
-      apiKey: "AIzaSyDp5-SjGHdLRQ7feRoS-RdKsJI4QFUJKQ0",
-      authDomain: "perf-indicator.firebaseapp.com",
-      databaseURL: "https://perf-indicator-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "perf-indicator",
-      storageBucket: "perf-indicator.firebasestorage.app",
-      messagingSenderId: "425708194902",
-      appId: "1:425708194902:web:1bd90a680999b8791b3ff7",
-      measurementId: "G-8LBV6RBRJP"
-    };
-
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
-      try { firebase.analytics(); } catch (e) {}
-    }
-    const db = firebase.database();
-    const DB_PATH = "earlyBirdManager/v1";
-
-    // =========================
-    // 2) 유틸
-    // =========================
-    const todayISO = () => new Date().toISOString().split('T')[0];
-
-    const parseNumberLike = (v) => {
-      if (v === null || v === undefined) return 0;
-      const s = String(v).replace(/[^\d.-]/g, '');
-      const n = Number(s);
-      return Number.isFinite(n) ? n : 0;
-    };
-
-    const clamp01 = (n) => Math.max(0, Math.min(100, n));
-
-    // =========================
-    // 3) 초기 데이터 (✅ 지자체/대학 분류 구조 통일)
-    // group: 'local' | 'univ'
-    // title: 지표명(큰 분류)
-    // item: 구성항목
-    // includeInAverage: 대시보드 평균 계산 포함 여부
-    // showOnDashboard: 대시보드 리스트 표시 여부
-    // =========================
-    const INITIAL_INDICATORS = [
-      // ---------- [지자체] 캡스톤디자인 및 현장실습 이수학생 수 ----------
-      { id: 101, group:'local', title:'캡스톤디자인 및 현장실습 이수학생 수', item:'합계', unit:'명', baseline:1058, target:1111, resultSem1:886, resultSem2:270, includeInAverage:true, showOnDashboard:true },
-      { id: 102, group:'local', title:'캡스톤디자인 및 현장실습 이수학생 수', item:'소계(캡스톤디자인)', unit:'명', baseline:820, target:861, resultSem1:557, resultSem2:0, includeInAverage:false, showOnDashboard:true },
-      { id: 103, group:'local', title:'캡스톤디자인 및 현장실습 이수학생 수', item:'기업연계', unit:'명', baseline:322, target:338, resultSem1:229, resultSem2:0, includeInAverage:false, showOnDashboard:false },
-      { id: 104, group:'local', title:'캡스톤디자인 및 현장실습 이수학생 수', item:'일반', unit:'명', baseline:498, target:523, resultSem1:328, resultSem2:0, includeInAverage:false, showOnDashboard:false },
-
-      { id: 105, group:'local', title:'캡스톤디자인 및 현장실습 이수학생 수', item:'소계(현장실습)', unit:'명', baseline:238, target:250, resultSem1:328, resultSem2:0, includeInAverage:false, showOnDashboard:true },
-      { id: 106, group:'local', title:'캡스톤디자인 및 현장실습 이수학생 수', item:'표준형', unit:'명', baseline:62, target:65, resultSem1:55, resultSem2:28, includeInAverage:false, showOnDashboard:false },
-      { id: 107, group:'local', title:'캡스톤디자인 및 현장실습 이수학생 수', item:'기타(자율 및 의무형)', unit:'명', baseline:176, target:185, resultSem1:290, resultSem2:226, includeInAverage:false, showOnDashboard:false },
-
-      // ---------- [지자체] 대전형 360°인재 지역 정주 취업자 수 ----------
-      { id: 201, group:'local', title:'대전형 360°인재 지역 정주 취업자 수', item:'합계', unit:'명', baseline:1081, target:1135, resultSem1:0, resultSem2:0, includeInAverage:true, showOnDashboard:true },
-      { id: 202, group:'local', title:'대전형 360°인재 지역 정주 취업자 수', item:'지역 내', unit:'명', baseline:275, target:289, resultSem1:0, resultSem2:0, includeInAverage:false, showOnDashboard:true },
-      { id: 203, group:'local', title:'대전형 360°인재 지역 정주 취업자 수', item:'지역 외', unit:'명', baseline:700, target:735, resultSem1:0, resultSem2:0, includeInAverage:false, showOnDashboard:false },
-      { id: 204, group:'local', title:'대전형 360°인재 지역 정주 취업자 수', item:'기타', unit:'명', baseline:106, target:111, resultSem1:0, resultSem2:0, includeInAverage:false, showOnDashboard:false },
-
-      // ---------- [대학] 자율성과지표 ----------
-      { id: 301, group:'univ', title:'캡스톤디자인 및 현장실습 연계 비교과 이수학생 수', item:'-', unit:'명', baseline:256, target:270, resultSem1:177, resultSem2:0, includeInAverage:true, showOnDashboard:true },
-      { id: 302, group:'univ', title:'표준현장실습 학기제 이수학생 취업률', item:'-', unit:'%', baseline:36.8, target:0, resultSem1:0, resultSem2:0, includeInAverage:false, showOnDashboard:true }
-    ];
-
-    const INITIAL_TASKS = [
-      { id: 1, category: '취업지원센터', name: 'RISE 기반 AI 잡매칭 플랫폼 개발', schedule: '2025.06~2026.02', status: 'In Progress', note: '업체선정완료 및 개발 중' },
-      { id: 2, category: '취업지원센터', name: 'RISE 기반 4i ICC 현장 중심 취업지원', schedule: '2025.06~2026.02', status: 'In Progress', note: '단대별 6개과목 교육진행' },
-      { id: 3, category: '취업지원센터', name: 'RISE 기반 4i ICC 실전 취업 지원', schedule: '2025.06~2026.02', status: 'Completed', note: '4개 단대별 취업박람회 완료' },
-      { id: 4, category: '캡스톤디자인', name: '상반기 캡스톤 디자인 경진대회', schedule: '2025.06', status: 'Completed', note: '1학기 경진대회 완료' },
-      { id: 5, category: '캡스톤디자인', name: '지역발굴 연계협업체계구축', schedule: '2025.07~12', status: 'Planned', note: '지역연계 기업체 발굴' },
-      { id: 6, category: '표준현장실습', name: '여름학기 현장실습생 보험가입 및 지원', schedule: '2025.06~08', status: 'Completed', note: '' },
-      { id: 7, category: '표준현장실습', name: '표준현장실습 경진대회', schedule: '2025.11~12', status: 'Planned', note: '통합 경진대회 실시' },
-    ];
-
-    const INITIAL_BUDGET = {
-      total: 665000,     // 천원
-      executed: 334229,  // 천원
-      details: [
-        { id: 1, item: '얼리버드 취업지원 운영비', amount: 334229, date: '2025-06-30', type: '집행' }
-      ]
-    };
-
-    // =========================
-    // 4) Lucide 아이콘
-    // =========================
-    function Icon({ name, className }) {
-      return <i data-lucide={name} className={className}></i>;
-    }
-
-    // =========================
-    // 5) 메인 앱
-    // =========================
-    function EarlyBirdManager() {
-      const [activeTab, setActiveTab] = useState('dashboard');
-
-      const [indicators, setIndicators] = useState(INITIAL_INDICATORS);
-      const [tasks, setTasks] = useState(INITIAL_TASKS);
-      const [budget, setBudget] = useState(INITIAL_BUDGET);
-
-      const [loading, setLoading] = useState(true);
-      const [saveMsg, setSaveMsg] = useState('');
-
-      // 집행 등록(연속입력 안정): uncontrolled input + ref
-      const expenseItemRef = useRef(null);
-      const expenseAmountRef = useRef(null);
-
-      // 총예산 수정
-      const [isEditingTotal, setIsEditingTotal] = useState(false);
-      const [totalDraft, setTotalDraft] = useState(String(INITIAL_BUDGET.total));
-
-      // 집행내역 수정/삭제
-      const [editingBudgetId, setEditingBudgetId] = useState(null);
-      const [budgetEditDraft, setBudgetEditDraft] = useState({ date: '', item: '', amount: '' });
-
-      // --- Firebase에서 불러오기 (최초 1회) ---
-      React.useEffect(() => {
-        let cancelled = false;
-        (async () => {
-          try {
-            const snap = await db.ref(DB_PATH).get();
-            if (!snap.exists()) {
-              if (!cancelled) setLoading(false);
-              return;
-            }
-            const data = snap.val();
-            if (!cancelled) {
-              if (Array.isArray(data?.indicators) && data.indicators.length) setIndicators(data.indicators);
-              if (Array.isArray(data?.tasks)) setTasks(data.tasks);
-
-              if (data?.budget && typeof data.budget === 'object') {
-                const b = data.budget;
-                const total = parseNumberLike(b.total);
-                const executed = parseNumberLike(b.executed);
-                const details = Array.isArray(b.details) ? b.details : [];
-                setBudget({ total, executed, details });
-                setTotalDraft(String(total));
-              }
-              setLoading(false);
-            }
-          } catch (e) {
-            console.error(e);
-            if (!cancelled) setLoading(false);
-          }
-        })();
-        return () => { cancelled = true; };
-      }, []);
-
-      // --- 저장하기 (수동 저장) ---
-      const saveToFirebase = async () => {
-        setSaveMsg('');
-        try {
-          const payload = { indicators, tasks, budget, updatedAt: new Date().toISOString() };
-          await db.ref(DB_PATH).set(payload);
-          setSaveMsg('✅ 저장 완료');
-          setTimeout(() => setSaveMsg(''), 2000);
-        } catch (e) {
-          console.error(e);
-          setSaveMsg('❌ 저장 실패 (Rules/권한 확인 필요)');
-          setTimeout(() => setSaveMsg(''), 3500);
+      function log(msg) {
+        const line = `[${new Date().toISOString()}] ${msg}\n`;
+        $log.textContent += line;
+        console.log(msg);
+      }
+      function ok(msg) {
+        log("✅ " + msg);
+        $status.textContent = msg;
+        $status.style.color = "#0f766e";
+      }
+      function fail(msg, err) {
+        log("❌ " + msg);
+        if (err) {
+          log("에러 상세: " + (err.message || String(err)));
+          console.error(err);
         }
-      };
-
-      // =========================
-      // 계산 로직
-      // =========================
-      const totalBudgetRatio = useMemo(() => {
-        const t = parseNumberLike(budget.total);
-        const e = parseNumberLike(budget.executed);
-        if (t <= 0) return "0.0";
-        return ((e / t) * 100).toFixed(1);
-      }, [budget]);
-
-      const averageAchievement = useMemo(() => {
-        // ✅ includeInAverage=true인 것만 평균
-        const list = indicators.filter(i => i.includeInAverage && parseNumberLike(i.target) > 0);
-        if (!list.length) return "0.0";
-        const sum = list.reduce((acc, i) => {
-          const total = parseNumberLike(i.resultSem1) + parseNumberLike(i.resultSem2);
-          const target = parseNumberLike(i.target);
-          const rate = target > 0 ? Math.min((total / target) * 100, 100) : 0;
-          return acc + rate;
-        }, 0);
-        return (sum / list.length).toFixed(1);
-      }, [indicators]);
-
-      // 대시보드에 보여줄 지표(✅ 비어버리는 문제 방지: showOnDashboard=true가 없으면 전부)
-      const dashboardIndicators = useMemo(() => {
-        const withFlag = indicators.filter(i => i.showOnDashboard);
-        const list = withFlag.length ? withFlag : indicators;
-        // 타이틀/아이템 순으로 보기 좋게
-        return [...list].sort((a,b) => (a.title+a.item).localeCompare(b.title+b.item));
-      }, [indicators]);
-
-      // =========================
-      // 지표 변경
-      // =========================
-      const handleIndicatorChange = (id, field, value) => {
-        setIndicators(prev => prev.map(item =>
-          item.id === id ? { ...item, [field]: parseNumberLike(value) } : item
-        ));
-      };
-
-      // =========================
-      // 과제 상태 변경
-      // =========================
-      const handleTaskStatusChange = (id, newStatus) => {
-        setTasks(prev => prev.map(task =>
-          task.id === id ? { ...task, status: newStatus } : task
-        ));
-      };
-
-      // =========================
-      // 예산: 집행 내역 등록 (연속입력 안정)
-      // =========================
-      const addExpense = () => {
-        const item = (expenseItemRef.current?.value || '').trim();
-        const amount = parseNumberLike(expenseAmountRef.current?.value || '');
-        if (!item || amount <= 0) return;
-
-        const newRow = {
-          id: Date.now(),
-          item,
-          amount,
-          date: todayISO(),
-          type: '집행'
-        };
-
-        setBudget(prev => ({
-          ...prev,
-          executed: parseNumberLike(prev.executed) + amount,
-          details: [...(prev.details || []), newRow]
-        }));
-
-        if (expenseItemRef.current) expenseItemRef.current.value = '';
-        if (expenseAmountRef.current) expenseAmountRef.current.value = '';
-        expenseItemRef.current?.focus();
-      };
-
-      // =========================
-      // 예산: 총 예산 수정
-      // =========================
-      const startEditTotal = () => {
-        setTotalDraft(String(parseNumberLike(budget.total)));
-        setIsEditingTotal(true);
-      };
-      const cancelEditTotal = () => {
-        setTotalDraft(String(parseNumberLike(budget.total)));
-        setIsEditingTotal(false);
-      };
-      const saveEditTotal = () => {
-        const proposed = parseNumberLike(totalDraft);
-        const executed = parseNumberLike(budget.executed);
-        const safeTotal = Math.max(proposed, executed);
-        setBudget(prev => ({ ...prev, total: safeTotal }));
-        setTotalDraft(String(safeTotal));
-        setIsEditingTotal(false);
-      };
-
-      // =========================
-      // 예산: 집행내역 수정/삭제
-      // =========================
-      const startEditBudgetDetail = (detail) => {
-        setEditingBudgetId(detail.id);
-        setBudgetEditDraft({
-          date: detail.date || todayISO(),
-          item: detail.item || '',
-          amount: String(parseNumberLike(detail.amount))
+        $status.textContent = "실행 실패: " + msg + " (F12 Console 확인)";
+        $status.style.color = "#dc2626";
+      }
+      function loadScript(src) {
+        return new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = src;
+          s.async = false;
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error("스크립트 로드 실패: " + src));
+          document.head.appendChild(s);
         });
+      }
+
+      // Firebase
+      const firebaseConfig = {
+        apiKey: "AIzaSyDp5-SjGHdLRQ7feRoS-RdKsJI4QFUJKQ0",
+        authDomain: "perf-indicator.firebaseapp.com",
+        databaseURL: "https://perf-indicator-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "perf-indicator",
+        storageBucket: "perf-indicator.firebasestorage.app",
+        messagingSenderId: "425708194902",
+        appId: "1:425708194902:web:1bd90a680999b8791b3ff7",
+        measurementId: "G-8LBV6RBRJP"
       };
-      const cancelEditBudgetDetail = () => {
-        setEditingBudgetId(null);
-        setBudgetEditDraft({ date: '', item: '', amount: '' });
-      };
-      const saveEditBudgetDetail = () => {
-        const id = editingBudgetId;
-        if (!id) return;
+      const DB_PATH = "earlyBirdManager/v1";
 
-        const newItem = (budgetEditDraft.item || '').trim();
-        const newAmount = parseNumberLike(budgetEditDraft.amount);
-        const newDate = budgetEditDraft.date || todayISO();
-        if (!newItem || newAmount <= 0) return;
-
-        setBudget(prev => {
-          const details = Array.isArray(prev.details) ? prev.details : [];
-          const old = details.find(d => d.id === id);
-          const oldAmount = old ? parseNumberLike(old.amount) : 0;
-
-          const nextDetails = details.map(d => d.id !== id ? d : ({ ...d, item: newItem, amount: newAmount, date: newDate }));
-          const executed = Math.max(0, parseNumberLike(prev.executed) - oldAmount + newAmount);
-          const total = Math.max(parseNumberLike(prev.total), executed);
-          return { ...prev, details: nextDetails, executed, total };
-        });
-
-        cancelEditBudgetDetail();
-      };
-      const deleteBudgetDetail = (id) => {
-        if (!confirm('해당 집행내역을 삭제할까요?')) return;
-
-        setBudget(prev => {
-          const details = Array.isArray(prev.details) ? prev.details : [];
-          const row = details.find(d => d.id === id);
-          const amt = row ? parseNumberLike(row.amount) : 0;
-
-          const nextDetails = details.filter(d => d.id !== id);
-          const executed = Math.max(0, parseNumberLike(prev.executed) - amt);
-          const total = Math.max(parseNumberLike(prev.total), executed);
-          return { ...prev, details: nextDetails, executed, total };
-        });
-
-        if (editingBudgetId === id) cancelEditBudgetDetail();
-      };
-
-      // =========================
-      // 렌더링 시 Lucide 갱신
-      // =========================
-      React.useEffect(() => {
-        if (window.lucide) window.lucide.createIcons();
-      }, [activeTab, indicators, tasks, budget, loading, isEditingTotal, editingBudgetId]);
-
-      // =========================
-      // 공통: 달성률 계산
-      // =========================
-      const calcRate = (row) => {
-        const total = parseNumberLike(row.resultSem1) + parseNumberLike(row.resultSem2);
-        const target = parseNumberLike(row.target);
-        if (target <= 0) return { total, target, rate: null }; // 목표 0이면 달성률 표시 안 함
-        const rate = (total / target) * 100;
-        return { total, target, rate };
-      };
-
-      // =========================
-      // 정량지표 표 렌더러 (지자체/대학 공용)
-      // title을 그룹핑해서 첫 줄에만 표시 (나머지는 '-')
-      // =========================
-      const IndicatorTable = ({ title, rows }) => {
-        const grouped = useMemo(() => {
-          const map = new Map();
-          rows.forEach(r => {
-            const key = r.title;
-            if (!map.has(key)) map.set(key, []);
-            map.get(key).push(r);
-          });
-          return Array.from(map.entries()).map(([k, arr]) => ({ title: k, rows: arr }));
-        }, [rows]);
-
-        return (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-5 border-b border-slate-100 bg-slate-50">
-              <div className="text-base font-bold text-slate-800">{title}</div>
-              <div className="text-xs text-slate-500 mt-1">1차년도 성과지표 및 실적</div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[980px]">
-                <thead className="bg-white text-slate-600 font-medium border-b border-slate-100">
-                  <tr>
-                    <th className="px-6 py-3 text-left">지표명</th>
-                    <th className="px-6 py-3 text-left">구성항목</th>
-                    <th className="px-4 py-3 text-center">단위</th>
-                    <th className="px-4 py-3 text-right">기준값</th>
-                    <th className="px-4 py-3 text-right">목표(A)</th>
-                    <th className="px-4 py-3 text-right bg-blue-50">상반기 실적</th>
-                    <th className="px-4 py-3 text-right bg-blue-50">하반기 실적</th>
-                    <th className="px-4 py-3 text-right font-bold text-indigo-900 bg-indigo-50">합계(B)</th>
-                    <th className="px-4 py-3 text-right font-bold text-indigo-900 bg-indigo-50">달성률(%)</th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-slate-100">
-                  {grouped.map(group => (
-                    group.rows.map((r, idx) => {
-                      const { total, target, rate } = calcRate(r);
-                      const rateText = (rate === null) ? '-' : `${rate.toFixed(1)}%`;
-                      const rateColor =
-                        (rate === null) ? 'text-slate-400'
-                        : rate >= 100 ? 'text-emerald-600'
-                        : rate >= 70 ? 'text-orange-500'
-                        : 'text-rose-600';
-
-                      return (
-                        <tr key={r.id} className="hover:bg-slate-50">
-                          <td className="px-6 py-3 text-slate-800 font-medium">
-                            {idx === 0 ? group.title : <span className="text-slate-400">-</span>}
-                          </td>
-                          <td className="px-6 py-3 text-slate-700">{r.item || '-'}</td>
-                          <td className="px-4 py-3 text-center text-slate-600">{r.unit || ''}</td>
-                          <td className="px-4 py-3 text-right text-slate-600">{parseNumberLike(r.baseline).toLocaleString()}</td>
-                          <td className="px-4 py-3 text-right text-slate-600">{parseNumberLike(r.target).toLocaleString()}</td>
-
-                          <td className="px-4 py-3 text-right bg-blue-50/30">
-                            <input
-                              type="number"
-                              className="w-24 text-right p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                              value={r.resultSem1}
-                              onChange={(e) => handleIndicatorChange(r.id, 'resultSem1', e.target.value)}
-                            />
-                          </td>
-                          <td className="px-4 py-3 text-right bg-blue-50/30">
-                            <input
-                              type="number"
-                              className="w-24 text-right p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                              value={r.resultSem2}
-                              onChange={(e) => handleIndicatorChange(r.id, 'resultSem2', e.target.value)}
-                            />
-                          </td>
-
-                          <td className="px-4 py-3 text-right font-bold text-indigo-700 bg-indigo-50/30">
-                            {total.toLocaleString()}
-                          </td>
-                          <td className={`px-4 py-3 text-right font-bold bg-indigo-50/30 ${rateColor}`}>
-                            {rateText}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
-      };
-
-      // =========================
-      // 뷰: 대시보드
-      // =========================
-      const DashboardView = () => (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-slate-500 font-medium">총 예산 집행률</h3>
-                <Icon name="wallet" className="text-blue-600 w-5 h-5" />
-              </div>
-              <div className="flex items-end gap-2 mb-2">
-                <span className="text-3xl font-bold text-slate-800">{totalBudgetRatio}%</span>
-                <span className="text-sm text-slate-400 mb-1">/ 100%</span>
-              </div>
-              <div className="relative w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-                <div className="bg-blue-600 h-3 rounded-full" style={{ width: `${clamp01(Number(totalBudgetRatio))}%` }}></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-[11px] font-bold text-white drop-shadow">{totalBudgetRatio}%</span>
-                </div>
-              </div>
-              <p className="text-xs text-slate-400 mt-2">
-                집행액: {parseNumberLike(budget.executed).toLocaleString()}천원 / 총액: {parseNumberLike(budget.total).toLocaleString()}천원
-              </p>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-slate-500 font-medium">평균 지표 달성률</h3>
-                <Icon name="target" className="text-emerald-600 w-5 h-5" />
-              </div>
-              <div className="flex items-end gap-2 mb-2">
-                <span className="text-3xl font-bold text-slate-800">{averageAchievement}%</span>
-                <span className="text-sm text-slate-400 mb-1">평균</span>
-              </div>
-              <div className="w-full bg-slate-100 rounded-full h-2">
-                <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${clamp01(Number(averageAchievement))}%` }}></div>
-              </div>
-              <p className="text-xs text-slate-400 mt-2">
-                includeInAverage=true 지표 기준 평균
-              </p>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-slate-500 font-medium">세부과제 진행현황</h3>
-                <Icon name="calendar" className="text-indigo-600 w-5 h-5" />
-              </div>
-              <div className="flex flex-col gap-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600">완료 (Completed)</span>
-                  <span className="font-bold text-indigo-600">{tasks.filter(t => t.status === 'Completed').length}건</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600">진행중 (In Progress)</span>
-                  <span className="font-bold text-blue-600">{tasks.filter(t => t.status === 'In Progress').length}건</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600">예정 (Planned)</span>
-                  <span className="font-bold text-slate-400">{tasks.filter(t => t.status === 'Planned').length}건</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ✅ 여기에서 “지표별 달성 현황”이 빈 문제 해결: dashboardIndicators를 무조건 출력 */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h3 className="text-lg font-bold text-slate-800 mb-4">지표별 달성 현황</h3>
-
-            {dashboardIndicators.length === 0 ? (
-              <div className="text-sm text-slate-500">표시할 지표가 없습니다. (indicators 데이터 확인 필요)</div>
-            ) : (
-              <div className="space-y-4">
-                {dashboardIndicators.map(ind => {
-                  const { total, target, rate } = calcRate(ind);
-                  const rateFixed = (rate === null) ? null : rate.toFixed(1);
-                  const width = (rateFixed === null) ? 0 : clamp01(Number(rateFixed));
-                  const titleLine = ind.item && ind.item !== '-' ? `${ind.title} · ${ind.item}` : ind.title;
-
-                  return (
-                    <div key={ind.id}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="font-medium text-slate-700">{titleLine}</span>
-                        <span className="text-slate-500">
-                          {total.toLocaleString()} / {target.toLocaleString()} {rateFixed === null ? '' : `(${rateFixed}%)`}
-                        </span>
-                      </div>
-
-                      <div className="w-full bg-slate-100 rounded-full h-2.5">
-                        <div
-                          className={`h-2.5 rounded-full ${rateFixed !== null && Number(rateFixed) >= 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
-                          style={{ width: `${width}%` }}
-                        ></div>
-                      </div>
-
-                      <div className="mt-1 text-[11px] text-slate-400">
-                        {ind.group === 'local' ? '[지자체]' : '[대학]'} {ind.unit ? `단위: ${ind.unit}` : ''}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      );
-
-      // =========================
-      // 뷰: 정량지표(지자체 + 대학)
-      // =========================
-      const PerformanceView = () => {
-        const localRows = indicators.filter(i => i.group === 'local');
-        const univRows  = indicators.filter(i => i.group === 'univ');
-
-        return (
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-800">정량지표 관리</h2>
-                  <p className="text-sm text-slate-500">지자체 성과지표 / 대학 자율성과지표 실적 입력 및 관리</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  {saveMsg && <span className="text-sm text-slate-500">{saveMsg}</span>}
-                  <button
-                    onClick={saveToFirebase}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    <Icon name="save" className="w-4 h-4" /> 저장하기
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <IndicatorTable title="[지자체] 성과목표 달성율" rows={localRows} />
-            <IndicatorTable title="[대학] 자율성과지표" rows={univRows} />
-          </div>
-        );
-      };
-
-      // =========================
-      // 뷰: 세부과제
-      // =========================
-      const TasksView = () => (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-slate-800">세부추진과제 관리</h2>
-              <p className="text-sm text-slate-500">항목별 세부일정 및 진행상태 모니터링</p>
-            </div>
-            <div className="flex items-center gap-3">
-              {saveMsg && <span className="text-sm text-slate-500">{saveMsg}</span>}
-              <button
-                onClick={saveToFirebase}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                <Icon name="save" className="w-4 h-4" /> 저장하기
-              </button>
-            </div>
-          </div>
-
-          <div className="p-6 grid gap-4">
-            {tasks.map((task) => (
-              <div key={task.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100 hover:border-blue-200">
-                <div className="flex-1 mb-4 md:mb-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="px-2 py-0.5 text-xs font-bold text-slate-600 bg-slate-200 rounded">{task.category}</span>
-                    <span className="text-xs text-slate-400">{task.schedule}</span>
-                  </div>
-                  <h3 className="text-base font-semibold text-slate-800">{task.name}</h3>
-                  {task.note && <p className="text-sm text-slate-500 mt-1">비고: {task.note}</p>}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {['Planned', 'In Progress', 'Completed'].map((status) => (
-                    <button
-                      key={status}
-                      onClick={() => handleTaskStatusChange(task.id, status)}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-full border ${
-                        task.status === status
-                          ? status === 'Completed' ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                          : status === 'In Progress' ? 'bg-blue-100 text-blue-700 border-blue-200'
-                          : 'bg-slate-200 text-slate-700 border-slate-300'
-                          : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      {status === 'Planned' ? '예정' : status === 'In Progress' ? '진행중' : '완료'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-
-      // =========================
-      // 뷰: 예산관리 (주의사항 박스 없음)
-      // =========================
-      const BudgetView = () => (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-3 space-y-6">
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-slate-800">예산 집행 현황</h2>
-                <div className="flex items-center gap-3">
-                  {saveMsg && <span className="text-sm text-slate-500">{saveMsg}</span>}
-                  <button
-                    onClick={saveToFirebase}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    <Icon name="save" className="w-4 h-4" /> 저장하기
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                <div className="p-4 bg-slate-50 rounded-lg text-center">
-                  <div className="text-sm text-slate-500 mb-2 flex items-center justify-center gap-2">
-                    <span>총 예산</span>
-                    {!isEditingTotal ? (
-                      <button
-                        onClick={startEditTotal}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
-                        title="총 예산 수정"
-                      >
-                        <Icon name="pencil" className="w-3 h-3" /> 수정
-                      </button>
-                    ) : null}
-                  </div>
-
-                  {!isEditingTotal ? (
-                    <div className="text-lg font-bold text-slate-800">{parseNumberLike(budget.total).toLocaleString()} 천원</div>
-                  ) : (
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        className="w-full p-2 border border-slate-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                        value={totalDraft}
-                        onChange={(e) => setTotalDraft(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') saveEditTotal(); }}
-                      />
-                      <div className="flex justify-center gap-2">
-                        <button
-                          onClick={saveEditTotal}
-                          className="px-3 py-1.5 text-xs rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
-                        >저장</button>
-                        <button
-                          onClick={cancelEditTotal}
-                          className="px-3 py-1.5 text-xs rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300"
-                        >취소</button>
-                      </div>
-                      <div className="text-[11px] text-slate-400">
-                        ※ 집행액({parseNumberLike(budget.executed).toLocaleString()})보다 작게 입력하면 자동 보정됩니다.
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="p-4 bg-blue-50 rounded-lg text-center border border-blue-100">
-                  <div className="text-sm text-blue-600 mb-1">집행액</div>
-                  <div className="text-lg font-bold text-blue-700">{parseNumberLike(budget.executed).toLocaleString()} 천원</div>
-                </div>
-
-                <div className="p-4 bg-emerald-50 rounded-lg text-center border border-emerald-100">
-                  <div className="text-sm text-emerald-600 mb-1">잔액</div>
-                  <div className="text-lg font-bold text-emerald-700">{(parseNumberLike(budget.total) - parseNumberLike(budget.executed)).toLocaleString()} 천원</div>
-                </div>
-              </div>
-
-              <h3 className="text-sm font-bold text-slate-700 mb-3">집행 내역 등록</h3>
-              <div className="flex gap-2 mb-4">
-                <input
-                  ref={expenseItemRef}
-                  type="text"
-                  placeholder="항목명 (예: 캡스톤 재료비)"
-                  className="flex-1 p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-                <input
-                  ref={expenseAmountRef}
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="금액 (천원)"
-                  className="w-40 p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-                  autoComplete="off"
-                  spellCheck={false}
-                  onKeyDown={(e) => { if (e.key === 'Enter') addExpense(); }}
-                />
-                <button
-                  onClick={addExpense}
-                  className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 text-sm font-medium"
-                >
-                  등록
-                </button>
-              </div>
-
-              <div className="mt-2">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="text-xs text-slate-500">현재 집행률</div>
-                  <div className="text-xs font-bold text-slate-700">{totalBudgetRatio}%</div>
-                </div>
-
-                <div className="relative w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-                  <div
-                    className="bg-blue-600 h-3 rounded-full"
-                    style={{ width: `${clamp01(Number(totalBudgetRatio))}%` }}
-                  ></div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-[11px] font-bold text-white drop-shadow">{totalBudgetRatio}%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="p-4 border-b border-slate-100 bg-slate-50">
-                <h3 className="font-semibold text-slate-700">최근 집행 내역 (수정/삭제)</h3>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[980px]">
-                  <thead className="bg-white text-slate-500 border-b border-slate-100">
-                    <tr>
-                      <th className="px-6 py-3 text-left w-[140px]">일자</th>
-                      <th className="px-6 py-3 text-left">항목</th>
-                      <th className="px-6 py-3 text-right w-[160px]">금액 (천원)</th>
-                      <th className="px-6 py-3 text-center w-[90px]">구분</th>
-                      <th className="px-6 py-3 text-center w-[220px]">관리</th>
-                    </tr>
-                  </thead>
-
-                  <tbody className="divide-y divide-slate-100">
-                    {(budget.details || []).map((detail) => {
-                      const isEditing = editingBudgetId === detail.id;
-                      return (
-                        <tr key={detail.id} className={isEditing ? "bg-yellow-50/60" : ""}>
-                          <td className="px-6 py-3 text-slate-600">
-                            {isEditing ? (
-                              <input
-                                type="date"
-                                className="p-1 border border-slate-300 rounded"
-                                value={budgetEditDraft.date}
-                                onChange={(e) => setBudgetEditDraft(prev => ({ ...prev, date: e.target.value }))}
-                              />
-                            ) : (detail.date || '')}
-                          </td>
-
-                          <td className="px-6 py-3 text-slate-800 font-medium">
-                            {isEditing ? (
-                              <input
-                                type="text"
-                                className="w-full p-1 border border-slate-300 rounded"
-                                value={budgetEditDraft.item}
-                                onChange={(e) => setBudgetEditDraft(prev => ({ ...prev, item: e.target.value }))}
-                              />
-                            ) : (detail.item || '')}
-                          </td>
-
-                          <td className="px-6 py-3 text-right text-slate-600">
-                            {isEditing ? (
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                className="w-28 text-right p-1 border border-slate-300 rounded"
-                                value={budgetEditDraft.amount}
-                                onChange={(e) => setBudgetEditDraft(prev => ({ ...prev, amount: e.target.value }))}
-                                onKeyDown={(e) => { if (e.key === 'Enter') saveEditBudgetDetail(); }}
-                              />
-                            ) : parseNumberLike(detail.amount).toLocaleString()}
-                          </td>
-
-                          <td className="px-6 py-3 text-center">
-                            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
-                              {detail.type || '집행'}
-                            </span>
-                          </td>
-
-                          <td className="px-6 py-3 text-center">
-                            {isEditing ? (
-                              <div className="flex justify-center gap-2">
-                                <button
-                                  onClick={saveEditBudgetDetail}
-                                  className="px-3 py-1.5 text-xs rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
-                                >저장</button>
-                                <button
-                                  onClick={cancelEditBudgetDetail}
-                                  className="px-3 py-1.5 text-xs rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300"
-                                >취소</button>
-                              </div>
-                            ) : (
-                              <div className="flex justify-center gap-2">
-                                <button
-                                  onClick={() => startEditBudgetDetail(detail)}
-                                  className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-                                >수정</button>
-                                <button
-                                  onClick={() => deleteBudgetDetail(detail.id)}
-                                  className="px-3 py-1.5 text-xs rounded-lg bg-rose-600 text-white hover:bg-rose-700"
-                                >삭제</button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="p-3 text-xs text-slate-400 border-t border-slate-100">
-                ※ 화면이 좁으면 가로 스크롤로 “관리(수정/삭제)” 버튼이 표시됩니다.
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-
-      // =========================
-      // 네비게이션
-      // =========================
-      const navItems = [
-        { id: 'dashboard', label: '대시보드', icon: 'layout-dashboard' },
-        { id: 'performance', label: '정량지표', icon: 'target' },
-        { id: 'tasks', label: '세부과제', icon: 'calendar' },
-        { id: 'budget', label: '예산관리', icon: 'wallet' },
+      // Initial data
+      const INITIAL_INDICATORS = [
+        { id: 1, category: '캡스톤디자인 및 현장실습', name: '캡스톤디자인 및 현장실습 이수학생 수', unit: '명', baseline: 1058, target: 1111, resultSem1: 886, resultSem2: 270, weight: 1.0 },
+        { id: 2, category: '캡스톤디자인 및 현장실습', name: '소계 (캡스톤디자인)', unit: '명', baseline: 820, target: 861, resultSem1: 557, resultSem2: 0, weight: 0 },
+        { id: 3, category: '캡스톤디자인 및 현장실습', name: '소계 (현장실습)', unit: '명', baseline: 238, target: 250, resultSem1: 328, resultSem2: 0, weight: 0 },
+        { id: 4, category: '취업자 수', name: '대전형 360°인재 지역 정주 취업자 수', unit: '명', baseline: 275, target: 289, resultSem1: 0, resultSem2: 0, weight: 1.0 },
+        { id: 5, category: '자율성과지표', name: '캡스톤/현장실습 연계 비교과 이수', unit: '명', baseline: 256, target: 270, resultSem1: 177, resultSem2: 0, weight: 1.0 }
       ];
 
-      return (
-        <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
-          <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex justify-between items-center h-16">
-                <div className="flex items-center gap-2">
-                  <div className="bg-blue-600 text-white p-1.5 rounded-lg">
-                    <Icon name="trending-up" className="w-5 h-5" />
-                  </div>
-                  <h1 className="text-lg font-bold text-slate-800">[2-1] 얼리버드 취업지원 사업실적관리</h1>
-                </div>
+      const INITIAL_TASKS = [
+        { id: 1, category: '취업지원센터', name: 'RISE 기반 AI 잡매칭 플랫폼 개발', schedule: '2025.06~2026.02', status: 'In Progress', note: '업체선정완료 및 개발 중' },
+        { id: 2, category: '취업지원센터', name: 'RISE 기반 4i ICC 현장 중심 취업지원', schedule: '2025.06~2026.02', status: 'In Progress', note: '단대별 6개과목 교육진행' },
+        { id: 3, category: '취업지원센터', name: 'RISE 기반 4i ICC 실전 취업 지원', schedule: '2025.06~2026.02', status: 'Completed', note: '4개 단대별 취업박람회 완료' },
+        { id: 4, category: '캡스톤디자인', name: '상반기 캡스톤 디자인 경진대회', schedule: '2025.06', status: 'Completed', note: '1학기 경진대회 완료' },
+        { id: 5, category: '캡스톤디자인', name: '지역발굴 연계협업체계구축', schedule: '2025.07~12', status: 'Planned', note: '지역연계 기업체 발굴' },
+        { id: 6, category: '표준현장실습', name: '여름학기 현장실습생 보험가입 및 지원', schedule: '2025.06~08', status: 'Completed', note: '' },
+        { id: 7, category: '표준현장실습', name: '표준현장실습 경진대회', schedule: '2025.11~12', status: 'Planned', note: '통합 경진대회 실시' },
+      ];
 
-                <nav className="flex space-x-1">
-                  {navItems.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => setActiveTab(item.id)}
-                      className={`flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        activeTab === item.id
-                          ? 'bg-slate-100 text-blue-700'
-                          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
-                      }`}
-                    >
-                      <Icon name={item.icon} className="w-4 h-4 mr-2" />
-                      {item.label}
-                    </button>
-                  ))}
-                </nav>
-              </div>
-            </div>
-          </header>
+      const INITIAL_BUDGET = {
+        total: 665000,
+        executed: 334229,
+        details: [
+          { id: 1, item: '얼리버드 취업지원 운영비', amount: 334229, date: '2025-06-30', type: '집행' }
+        ]
+      };
 
-          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {loading ? (
-              <div className="bg-white p-6 rounded-xl border border-slate-200 text-slate-600">
-                Firebase에서 데이터를 불러오는 중입니다...
-              </div>
-            ) : (
-              <>
-                {activeTab === 'dashboard' && <DashboardView />}
-                {activeTab === 'performance' && <PerformanceView />}
-                {activeTab === 'tasks' && <TasksView />}
-                {activeTab === 'budget' && <BudgetView />}
-              </>
-            )}
-          </main>
-        </div>
-      );
-    }
+      // Helpers
+      function h(type, props, ...children) { return React.createElement(type, props, ...children); }
+      function Icon({ name, className }) { return h("i", { "data-lucide": name, className: className || "" }); }
+      function toNumberSafe(v) {
+        const n = Number(String(v ?? "").replace(/[^\d]/g, ''));
+        return Number.isFinite(n) ? n : 0;
+      }
 
-    // Mount
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<EarlyBirdManager />);
+      // Views (outside component to avoid IME issues)
+      function DashboardView(props) {
+        const { indicators, tasks, budget, totalBudgetRatio, averageAchievement } = props;
+        return h("div", { className: "space-y-6" },
+          h("div", { className: "grid grid-cols-1 md:grid-cols-3 gap-4" },
+
+            h("div", { className: "bg-white p-6 rounded-xl shadow-sm border border-slate-200" },
+              h("div", { className: "flex items-center justify-between mb-4" },
+                h("h3", { className: "text-slate-500 font-medium" }, "총 예산 집행률"),
+                h(Icon, { name: "wallet", className: "text-blue-500 w-5 h-5" })
+              ),
+              h("div", { className: "flex items-end gap-2 mb-2" },
+                h("span", { className: "text-3xl font-bold text-slate-800" }, totalBudgetRatio + "%"),
+                h("span", { className: "text-sm text-slate-400 mb-1" }, "/ 100%")
+              ),
+              h("div", { className: "w-full bg-slate-100 rounded-full h-2" },
+                h("div", { className: "bg-blue-500 h-2 rounded-full transition-all duration-500", style: { width: totalBudgetRatio + "%" } })
+              ),
+              h("p", { className: "text-xs text-slate-400 mt-2" },
+                "집행액: " + budget.executed.toLocaleString() + "천원 / 총액: " + budget.total.toLocaleString() + "천원"
+              )
+            ),
+
+            h("div", { className: "bg-white p-6 rounded-xl shadow-sm border border-slate-200" },
+              h("div", { className: "flex items-center justify-between mb-4" },
+                h("h3", { className: "text-slate-500 font-medium" }, "평균 지표 달성률"),
+                h(Icon, { name: "target", className: "text-emerald-500 w-5 h-5" })
+              ),
+              h("div", { className: "flex items-end gap-2 mb-2" },
+                h("span", { className: "text-3xl font-bold text-slate-800" }, averageAchievement + "%"),
+                h("span", { className: "text-sm text-slate-400 mb-1" }, "평균")
+              ),
+              h("div", { className: "w-full bg-slate-100 rounded-full h-2" },
+                h("div", { className: "bg-emerald-500 h-2 rounded-full transition-all duration-500", style: { width: averageAchievement + "%" } })
+              ),
+              h("p", { className: "text-xs text-slate-400 mt-2" }, "주요 정량지표 목표 대비 실적 평균")
+            ),
+
+            h("div", { className: "bg-white p-6 rounded-xl shadow-sm border border-slate-200" },
+              h("div", { className: "flex items-center justify-between mb-4" },
+                h("h3", { className: "text-slate-500 font-medium" }, "세부과제 진행현황"),
+                h(Icon, { name: "calendar", className: "text-indigo-500 w-5 h-5" })
+              ),
+              h("div", { className: "flex flex-col gap-2" },
+                h("div", { className: "flex justify-between items-center" },
+                  h("span", { className: "text-sm text-slate-600" }, "완료 (Completed)"),
+                  h("span", { className: "font-bold text-indigo-600" }, tasks.filter(t => t.status === 'Completed').length + "건")
+                ),
+                h("div", { className: "flex justify-between items-center" },
+                  h("span", { className: "text-sm text-slate-600" }, "진행중 (In Progress)"),
+                  h("span", { className: "font-bold text-blue-600" }, tasks.filter(t => t.status === 'In Progress').length + "건")
+                ),
+                h("div", { className: "flex justify-between items-center" },
+                  h("span", { className: "text-sm text-slate-600" }, "예정 (Planned)"),
+                  h("span", { className: "font-bold text-slate-400" }, tasks.filter(t => t.status === 'Planned').length + "건")
+                )
+              )
+            )
+          )
+        );
+      }
+
+      function PerformanceView(props) {
+        const { indicators, handleIndicatorChange, saveToFirebase, saveMsg } = props;
+
+        return h("div", { className: "bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" },
+          h("div", { className: "p-6 border-b border-slate-100 flex justify-between items-center" },
+            h("div", null,
+              h("h2", { className: "text-xl font-bold text-slate-800" }, "정량지표 관리"),
+              h("p", { className: "text-sm text-slate-500" }, "1차년도 성과지표 실적 입력 및 관리")
+            ),
+            h("div", { className: "flex items-center gap-3" },
+              saveMsg ? h("span", { className: "text-sm text-slate-500" }, saveMsg) : null,
+              h("button", {
+                onClick: saveToFirebase,
+                className: "flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              },
+                h(Icon, { name: "save", className: "w-4 h-4" }),
+                "저장하기"
+              )
+            )
+          ),
+
+          h("div", { className: "overflow-x-auto" },
+            h("table", { className: "w-full text-sm text-left" },
+              h("thead", { className: "bg-slate-50 text-slate-600 font-medium" },
+                h("tr", null,
+                  h("th", { className: "px-6 py-4" }, "지표명"),
+                  h("th", { className: "px-4 py-4 text-center" }, "단위"),
+                  h("th", { className: "px-4 py-4 text-right" }, "목표(A)"),
+                  h("th", { className: "px-4 py-4 text-right bg-blue-50" }, "상반기 실적"),
+                  h("th", { className: "px-4 py-4 text-right bg-blue-50" }, "하반기 실적"),
+                  h("th", { className: "px-4 py-4 text-right font-bold text-indigo-900 bg-indigo-50" }, "합계(B)"),
+                  h("th", { className: "px-4 py-4 text-right font-bold text-indigo-900 bg-indigo-50" }, "달성률(%)")
+                )
+              ),
+              h("tbody", { className: "divide-y divide-slate-100" },
+                indicators.map(ind => {
+                  const total = (Number(ind.resultSem1) || 0) + (Number(ind.resultSem2) || 0);
+                  const rate = ind.target > 0 ? ((total / ind.target) * 100).toFixed(1) : "0.0";
+                  return h("tr", { key: ind.id, className: "hover:bg-slate-50 transition-colors" },
+                    h("td", { className: "px-6 py-4 font-medium text-slate-800" },
+                      h("div", { className: "flex flex-col" },
+                        h("span", null, ind.name),
+                        h("span", { className: "text-xs text-slate-400 font-normal" }, ind.category)
+                      )
+                    ),
+                    h("td", { className: "px-4 py-4 text-center text-slate-500" }, ind.unit),
+                    h("td", { className: "px-4 py-4 text-right text-slate-600" }, ind.target.toLocaleString()),
+                    h("td", { className: "px-4 py-4 text-right bg-blue-50/30" },
+                      h("input", {
+                        type: "number",
+                        className: "w-20 text-right p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none",
+                        value: ind.resultSem1,
+                        onChange: (e) => handleIndicatorChange(ind.id, 'resultSem1', e.target.value)
+                      })
+                    ),
+                    h("td", { className: "px-4 py-4 text-right bg-blue-50/30" },
+                      h("input", {
+                        type: "number",
+                        className: "w-20 text-right p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none",
+                        value: ind.resultSem2,
+                        onChange: (e) => handleIndicatorChange(ind.id, 'resultSem2', e.target.value)
+                      })
+                    ),
+                    h("td", { className: "px-4 py-4 text-right font-bold text-indigo-700 bg-indigo-50/30" }, total.toLocaleString()),
+                    h("td", { className: "px-4 py-4 text-right font-bold bg-indigo-50/30" },
+                      h("span", { className: Number(rate) >= 100 ? "text-emerald-600" : "text-orange-500" }, rate + "%")
+                    )
+                  );
+                })
+              )
+            )
+          )
+        );
+      }
+
+      function TasksView(props) {
+        const { tasks, handleTaskStatusChange, saveToFirebase, saveMsg } = props;
+
+        return h("div", { className: "bg-white rounded-xl shadow-sm border border-slate-200" },
+          h("div", { className: "p-6 border-b border-slate-100 flex items-center justify-between" },
+            h("div", null,
+              h("h2", { className: "text-xl font-bold text-slate-800" }, "세부추진과제 관리"),
+              h("p", { className: "text-sm text-slate-500" }, "항목별 세부일정 및 진행상태 모니터링")
+            ),
+            h("div", { className: "flex items-center gap-3" },
+              saveMsg ? h("span", { className: "text-sm text-slate-500" }, saveMsg) : null,
+              h("button", {
+                onClick: saveToFirebase,
+                className: "flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              },
+                h(Icon, { name: "save", className: "w-4 h-4" }),
+                "저장하기"
+              )
+            )
+          ),
+
+          h("div", { className: "p-6 grid gap-4" },
+            tasks.map(task =>
+              h("div", { key: task.id, className: "flex flex-col md:flex-row md:items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100 hover:border-blue-200 transition-all" },
+                h("div", { className: "flex-1 mb-4 md:mb-0" },
+                  h("div", { className: "flex items-center gap-2 mb-1" },
+                    h("span", { className: "px-2 py-0.5 text-xs font-bold text-slate-500 bg-slate-200 rounded" }, task.category),
+                    h("span", { className: "text-xs text-slate-400" }, task.schedule)
+                  ),
+                  h("h3", { className: "text-base font-semibold text-slate-800" }, task.name),
+                  task.note ? h("p", { className: "text-sm text-slate-500 mt-1" }, "비고: " + task.note) : null
+                ),
+                h("div", { className: "flex gap-2" },
+                  ['Planned', 'In Progress', 'Completed'].map(status => {
+                    const active = task.status === status;
+                    const cls =
+                      "px-3 py-1.5 text-xs font-medium rounded-full transition-colors border " +
+                      (active
+                        ? (status === 'Completed'
+                          ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                          : status === 'In Progress'
+                            ? 'bg-blue-100 text-blue-700 border-blue-200'
+                            : 'bg-slate-200 text-slate-600 border-slate-300')
+                        : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-50');
+
+                    return h("button", {
+                      key: status,
+                      onClick: () => handleTaskStatusChange(task.id, status),
+                      className: cls
+                    }, status === 'Planned' ? '예정' : status === 'In Progress' ? '진행중' : '완료');
+                  })
+                )
+              )
+            )
+          )
+        );
+      }
+
+      // ✅ BudgetView: 수정/삭제 기능 추가
+      function BudgetView(props) {
+        const {
+          budget, totalBudgetRatio, saveToFirebase, saveMsg,
+          itemRef, amountRef, addExpense,
+          editingId, editDraft, startEdit, cancelEdit, changeEdit, saveEdit, deleteDetail
+        } = props;
+
+        return h("div", { className: "grid grid-cols-1 lg:grid-cols-3 gap-6" },
+          h("div", { className: "lg:col-span-2 space-y-6" },
+
+            h("div", { className: "bg-white p-6 rounded-xl shadow-sm border border-slate-200" },
+              h("div", { className: "flex items-center justify-between mb-6" },
+                h("h2", { className: "text-xl font-bold text-slate-800" }, "예산 집행 현황"),
+                h("div", { className: "flex items-center gap-3" },
+                  saveMsg ? h("span", { className: "text-sm text-slate-500" }, saveMsg) : null,
+                  h("button", {
+                    onClick: saveToFirebase,
+                    className: "flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  },
+                    h(Icon, { name: "save", className: "w-4 h-4" }),
+                    "저장하기"
+                  )
+                )
+              ),
+
+              h("div", { className: "grid grid-cols-3 gap-4 mb-8" },
+                h("div", { className: "p-4 bg-slate-50 rounded-lg text-center" },
+                  h("div", { className: "text-sm text-slate-500 mb-1" }, "총 예산"),
+                  h("div", { className: "text-lg font-bold text-slate-800" }, budget.total.toLocaleString() + " 천원")
+                ),
+                h("div", { className: "p-4 bg-blue-50 rounded-lg text-center border border-blue-100" },
+                  h("div", { className: "text-sm text-blue-600 mb-1" }, "집행액 (승인+지출)"),
+                  h("div", { className: "text-lg font-bold text-blue-700" }, budget.executed.toLocaleString() + " 천원")
+                ),
+                h("div", { className: "p-4 bg-emerald-50 rounded-lg text-center border border-emerald-100" },
+                  h("div", { className: "text-sm text-emerald-600 mb-1" }, "잔액"),
+                  h("div", { className: "text-lg font-bold text-emerald-700" }, (budget.total - budget.executed).toLocaleString() + " 천원")
+                )
+              ),
+
+              h("h3", { className: "text-sm font-bold text-slate-700 mb-3" }, "집행 내역 등록"),
+              h("div", { className: "flex gap-2 mb-2" },
+                h("input", {
+                  ref: itemRef,
+                  type: "text",
+                  placeholder: "항목명 (예: 캡스톤 재료비)",
+                  className: "flex-1 p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm",
+                  autoComplete: "off",
+                  spellCheck: false
+                }),
+                h("input", {
+                  ref: amountRef,
+                  type: "text",
+                  inputMode: "numeric",
+                  placeholder: "금액 (천원)",
+                  className: "w-32 p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm",
+                  autoComplete: "off",
+                  spellCheck: false,
+                  onKeyDown: (e) => { if (e.key === 'Enter') addExpense(); }
+                }),
+                h("button", {
+                  onClick: addExpense,
+                  className: "px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 text-sm font-medium"
+                }, "등록")
+              ),
+              h("p", { className: "text-xs text-slate-400" }, "※ 등록 후 오류가 있으면 아래 ‘최근 집행 내역’에서 수정/삭제 가능합니다.")
+            ),
+
+            h("div", { className: "bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" },
+              h("div", { className: "p-4 border-b border-slate-100 bg-slate-50" },
+                h("h3", { className: "font-semibold text-slate-700" }, "최근 집행 내역")
+              ),
+              h("table", { className: "w-full text-sm" },
+                h("thead", { className: "bg-white text-slate-500 border-b border-slate-100" },
+                  h("tr", null,
+                    h("th", { className: "px-6 py-3 text-left" }, "일자"),
+                    h("th", { className: "px-6 py-3 text-left" }, "항목"),
+                    h("th", { className: "px-6 py-3 text-right" }, "금액 (천원)"),
+                    h("th", { className: "px-6 py-3 text-center" }, "구분"),
+                    h("th", { className: "px-6 py-3 text-center" }, "관리")
+                  )
+                ),
+                h("tbody", { className: "divide-y divide-slate-100" },
+                  budget.details.map(d => {
+                    const isEditing = editingId === d.id;
+
+                    return h("tr", { key: d.id, className: isEditing ? "bg-yellow-50/50" : "" },
+
+                      // date
+                      h("td", { className: "px-6 py-3 text-slate-600" },
+                        isEditing
+                          ? h("input", {
+                              type: "date",
+                              className: "p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm",
+                              value: editDraft.date || "",
+                              onChange: (e) => changeEdit("date", e.target.value)
+                            })
+                          : d.date
+                      ),
+
+                      // item
+                      h("td", { className: "px-6 py-3 text-slate-800 font-medium" },
+                        isEditing
+                          ? h("input", {
+                              type: "text",
+                              className: "w-full p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm",
+                              value: editDraft.item || "",
+                              onChange: (e) => changeEdit("item", e.target.value)
+                            })
+                          : d.item
+                      ),
+
+                      // amount
+                      h("td", { className: "px-6 py-3 text-right text-slate-600" },
+                        isEditing
+                          ? h("input", {
+                              type: "text",
+                              inputMode: "numeric",
+                              className: "w-28 text-right p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm",
+                              value: String(editDraft.amount ?? ""),
+                              onChange: (e) => changeEdit("amount", e.target.value)
+                            })
+                          : d.amount.toLocaleString()
+                      ),
+
+                      // type
+                      h("td", { className: "px-6 py-3 text-center" },
+                        h("span", { className: "px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs" }, d.type)
+                      ),
+
+                      // actions
+                      h("td", { className: "px-6 py-3 text-center" },
+                        isEditing
+                          ? h("div", { className: "flex justify-center gap-2" },
+                              h("button", {
+                                onClick: saveEdit,
+                                className: "px-3 py-1.5 text-xs rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
+                              }, "저장"),
+                              h("button", {
+                                onClick: cancelEdit,
+                                className: "px-3 py-1.5 text-xs rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300"
+                              }, "취소")
+                            )
+                          : h("div", { className: "flex justify-center gap-2" },
+                              h("button", {
+                                onClick: () => startEdit(d),
+                                className: "px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                              }, "수정"),
+                              h("button", {
+                                onClick: () => deleteDetail(d.id),
+                                className: "px-3 py-1.5 text-xs rounded-lg bg-rose-600 text-white hover:bg-rose-700"
+                              }, "삭제")
+                            )
+                      )
+                    );
+                  })
+                )
+              )
+            )
+          ),
+
+          h("div", { className: "bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-6 rounded-xl h-fit" },
+            h("h3", { className: "text-lg font-bold mb-4 flex items-center gap-2" },
+              h(Icon, { name: "alert-circle", className: "w-5 h-5 text-yellow-400" }),
+              "예산 관리 주의사항"
+            ),
+            h("ul", { className: "space-y-4 text-sm text-slate-300" },
+              h("li", { className: "flex gap-2" }, h("span", { className: "text-yellow-400 font-bold" }, "•"), h("span", null, "예산 단위는 천원입니다. 입력 시 주의해주세요.")),
+              h("li", { className: "flex gap-2" }, h("span", { className: "text-yellow-400 font-bold" }, "•"), h("span", null, "당월 집행율은 월말 기준 90% 이상을 권장합니다.")),
+              h("li", { className: "flex gap-2" }, h("span", { className: "text-yellow-400 font-bold" }, "•"), h("span", null, "회의비 및 재료비는 증빙 서류를 필히 첨부하여 별도 보관해야 합니다."))
+            ),
+            h("div", { className: "mt-8 pt-6 border-t border-white/10" },
+              h("div", { className: "text-xs text-slate-400 mb-1" }, "현재 집행률"),
+              h("div", { className: "text-3xl font-bold text-white mb-2" }, totalBudgetRatio + "%"),
+              h("p", { className: "text-xs text-slate-400" }, "목표 달성까지 안정적인 수준입니다.")
+            )
+          )
+        );
+      }
+
+      // App
+      function EarlyBirdManager() {
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        const [activeTab, setActiveTab] = useState('dashboard');
+        const [indicators, setIndicators] = useState(INITIAL_INDICATORS);
+        const [tasks, setTasks] = useState(INITIAL_TASKS);
+        const [budget, setBudget] = useState(INITIAL_BUDGET);
+        const [loading, setLoading] = useState(true);
+        const [saveMsg, setSaveMsg] = useState('');
+
+        // ✅ IME safe inputs
+        const itemRef = useRef(null);
+        const amountRef = useRef(null);
+
+        // ✅ edit state
+        const [editingId, setEditingId] = useState(null);
+        const [editDraft, setEditDraft] = useState({ date: "", item: "", amount: "" });
+
+        useEffect(() => {
+          (async () => {
+            try {
+              const snap = await firebase.database().ref(DB_PATH).get();
+              if (!snap.exists()) { setLoading(false); return; }
+              const data = snap.val();
+              if (Array.isArray(data?.indicators)) setIndicators(data.indicators);
+              if (Array.isArray(data?.tasks)) setTasks(data.tasks);
+              if (data?.budget && typeof data.budget === 'object') setBudget(data.budget);
+              setLoading(false);
+            } catch (e) {
+              console.error(e);
+              setLoading(false);
+            }
+          })();
+        }, []);
+
+        useEffect(() => {
+          if (window.lucide) window.lucide.createIcons();
+        }, [activeTab, loading, indicators, tasks, budget, editingId, editDraft]);
+
+        const totalBudgetRatio = useMemo(() => {
+          return budget.total > 0 ? ((budget.executed / budget.total) * 100).toFixed(1) : "0.0";
+        }, [budget]);
+
+        const averageAchievement = useMemo(() => {
+          const mainIndicators = indicators.filter(i => i.target > 0);
+          const totalRate = mainIndicators.reduce((acc, curr) => {
+            const totalResult = (Number(curr.resultSem1) || 0) + (Number(curr.resultSem2) || 0);
+            return acc + Math.min((totalResult / curr.target) * 100, 100);
+          }, 0);
+          return mainIndicators.length ? (totalRate / mainIndicators.length).toFixed(1) : "0.0";
+        }, [indicators]);
+
+        const saveToFirebase = async () => {
+          setSaveMsg('');
+          try {
+            const payload = { indicators, tasks, budget, updatedAt: new Date().toISOString() };
+            await firebase.database().ref(DB_PATH).set(payload);
+            setSaveMsg('✅ 저장 완료');
+            setTimeout(() => setSaveMsg(''), 1500);
+          } catch (e) {
+            console.error(e);
+            setSaveMsg('❌ 저장 실패 (Rules/권한 확인)');
+            setTimeout(() => setSaveMsg(''), 2500);
+          }
+        };
+
+        const handleIndicatorChange = (id, field, value) => {
+          const num = Number(value);
+          setIndicators(prev => prev.map(item => item.id === id ? { ...item, [field]: num } : item));
+        };
+
+        const handleTaskStatusChange = (id, newStatus) => {
+          setTasks(prev => prev.map(task => task.id === id ? { ...task, status: newStatus } : task));
+        };
+
+        // ✅ add expense
+        const addExpense = () => {
+          const item = (itemRef.current?.value || '').trim();
+          const raw = (amountRef.current?.value || '').trim();
+          const amount = toNumberSafe(raw);
+          if (!item || amount <= 0) return;
+
+          setBudget(prev => ({
+            ...prev,
+            executed: prev.executed + amount,
+            details: [
+              ...prev.details,
+              { id: Date.now(), item, amount, date: new Date().toISOString().slice(0,10), type: '집행' }
+            ]
+          }));
+
+          if (itemRef.current) itemRef.current.value = '';
+          if (amountRef.current) amountRef.current.value = '';
+          if (itemRef.current) itemRef.current.focus();
+        };
+
+        // ✅ start edit
+        const startEdit = (detail) => {
+          setEditingId(detail.id);
+          setEditDraft({
+            date: detail.date || "",
+            item: detail.item || "",
+            amount: String(detail.amount ?? "")
+          });
+        };
+
+        const cancelEdit = () => {
+          setEditingId(null);
+          setEditDraft({ date: "", item: "", amount: "" });
+        };
+
+        const changeEdit = (field, value) => {
+          // amount는 숫자만 유지(입력은 자유, 저장 시 숫자화)
+          setEditDraft(prev => ({ ...prev, [field]: value }));
+        };
+
+        // ✅ save edit: executed 차액 반영
+        const saveEdit = () => {
+          if (editingId == null) return;
+
+          const newItem = (editDraft.item || "").trim();
+          const newDate = (editDraft.date || "").trim();
+          const newAmount = toNumberSafe(editDraft.amount);
+
+          if (!newItem || !newDate || newAmount <= 0) return;
+
+          setBudget(prev => {
+            const old = prev.details.find(x => x.id === editingId);
+            if (!old) return prev;
+
+            const oldAmount = Number(old.amount) || 0;
+            const diff = newAmount - oldAmount;
+
+            const nextDetails = prev.details.map(x =>
+              x.id === editingId
+                ? { ...x, item: newItem, date: newDate, amount: newAmount }
+                : x
+            );
+
+            return {
+              ...prev,
+              executed: prev.executed + diff,
+              details: nextDetails
+            };
+          });
+
+          cancelEdit();
+        };
+
+        // ✅ delete: executed 차감
+        const deleteDetail = (id) => {
+          // 편집 중인 행 삭제 시 편집도 종료
+          setBudget(prev => {
+            const target = prev.details.find(x => x.id === id);
+            if (!target) return prev;
+
+            const amt = Number(target.amount) || 0;
+            const nextDetails = prev.details.filter(x => x.id !== id);
+
+            return {
+              ...prev,
+              executed: Math.max(0, prev.executed - amt),
+              details: nextDetails
+            };
+          });
+
+          if (editingId === id) cancelEdit();
+        };
+
+        const navItems = [
+          { id: 'dashboard', label: '대시보드', icon: 'layout-dashboard' },
+          { id: 'performance', label: '정량지표', icon: 'target' },
+          { id: 'tasks', label: '세부과제', icon: 'calendar' },
+          { id: 'budget', label: '예산관리', icon: 'wallet' },
+        ];
+
+        let content = null;
+        if (loading) {
+          content = h("div", { className: "bg-white p-6 rounded-xl border border-slate-200 text-slate-600" }, "Firebase에서 데이터를 불러오는 중입니다...");
+        } else if (activeTab === 'dashboard') {
+          content = h(DashboardView, { indicators, tasks, budget, totalBudgetRatio, averageAchievement });
+        } else if (activeTab === 'performance') {
+          content = h(PerformanceView, { indicators, handleIndicatorChange, saveToFirebase, saveMsg });
+        } else if (activeTab === 'tasks') {
+          content = h(TasksView, { tasks, handleTaskStatusChange, saveToFirebase, saveMsg });
+        } else {
+          content = h(BudgetView, {
+            budget, totalBudgetRatio, saveToFirebase, saveMsg,
+            itemRef, amountRef, addExpense,
+            editingId, editDraft, startEdit, cancelEdit, changeEdit, saveEdit, deleteDetail
+          });
+        }
+
+        return h("div", { className: "min-h-screen bg-slate-50 font-sans text-slate-900" },
+
+          h("header", { className: "bg-white border-b border-slate-200 sticky top-0 z-10" },
+            h("div", { className: "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" },
+              h("div", { className: "flex justify-between items-center h-16" },
+                h("div", { className: "flex items-center gap-2" },
+                  h("div", { className: "bg-blue-600 text-white p-1.5 rounded-lg" },
+                    h(Icon, { name: "trending-up", className: "w-5 h-5" })
+                  ),
+                  h("h1", { className: "text-lg font-bold text-slate-800" }, "[2-1] 얼리버드 취업지원 사업실적관리")
+                ),
+                h("nav", { className: "flex space-x-1" },
+                  navItems.map(item =>
+                    h("button", {
+                      key: item.id,
+                      onClick: () => setActiveTab(item.id),
+                      className:
+                        "flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors " +
+                        (activeTab === item.id ? "bg-slate-100 text-blue-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-700")
+                    },
+                      h(Icon, { name: item.icon, className: "w-4 h-4 mr-2" }),
+                      item.label
+                    )
+                  )
+                )
+              )
+            )
+          ),
+
+          h("main", { className: "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" }, content)
+        );
+      }
+
+      // Boot
+      (async () => {
+        try {
+          ok("외부 라이브러리 로딩 시작...");
+
+          await loadScript("https://unpkg.com/react@18/umd/react.production.min.js");
+          ok("React 로딩 완료");
+
+          await loadScript("https://unpkg.com/react-dom@18/umd/react-dom.production.min.js");
+          ok("ReactDOM 로딩 완료");
+
+          await loadScript("https://unpkg.com/lucide@latest");
+          ok("Lucide 로딩 완료");
+
+          await loadScript("https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js");
+          await loadScript("https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js");
+          await loadScript("https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js");
+          ok("Firebase SDK 로딩 완료");
+
+          if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+            try { firebase.analytics(); } catch (e) {}
+          }
+          ok("Firebase 초기화 완료");
+
+          ok("앱 렌더링 중...");
+          const root = ReactDOM.createRoot(document.getElementById("root"));
+          root.render(h(EarlyBirdManager, null));
+
+          document.getElementById("boot").style.display = "none";
+        } catch (e) {
+          fail("부팅 중 오류 발생", e);
+        }
+      })();
+
+    })();
   </script>
 </body>
 </html>
