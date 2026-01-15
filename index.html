@@ -1052,25 +1052,7 @@
                   ※ 화면이 좁으면 가로 스크롤로 “관리(수정/삭제)” 버튼이 표시됩니다.
                 </div>
               </div>
-            </div>
-
-            {/* 오른쪽은 비워둠(요청: 주의사항 삭제) */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-              <div className="flex items-center gap-2 mb-4">
-                <Icon name="info" className="w-5 h-5 text-slate-500" />
-                <h3 className="font-bold text-slate-800">요약</h3>
-              </div>
-              <div className="text-sm text-slate-600 space-y-2">
-                <div>• 총예산: <b>{parseNumberLike(budget.total).toLocaleString()}천원</b></div>
-                <div>• 집행액: <b>{parseNumberLike(budget.executed).toLocaleString()}천원</b></div>
-                <div>• 잔액: <b>{remain.toLocaleString()}천원</b></div>
-                <div>• 집행률: <b>{totalBudgetRatio}%</b></div>
-              </div>
-            </div>
-          </div>
-        );
-      };
-
+            </div>           
       const navItems = [
         { id: "dashboard", label: "대시보드", icon: "layout-dashboard" },
         { id: "performance", label: "정량지표", icon: "target" },
@@ -1147,3 +1129,4 @@
   </script>
 </body>
 </html>
+
