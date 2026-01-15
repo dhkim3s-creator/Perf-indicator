@@ -443,29 +443,29 @@
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <h3 className="text-lg font-bold text-slate-800 mb-4">지표별 달성 현황</h3>
             <div className="space-y-4">
-              {indicators.slice(0, 4).map(ind => {
-                const total = parseNumberLike(ind.resultSem1) + parseNumberLike(ind.resultSem2);
-                const target = parseNumberLike(ind.target);
-                const rate = target > 0 ? ((total / target) * 100).toFixed(1) : "0.0";
-                return (
-                  <div key={ind.id}>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="font-medium text-slate-700">{ind.name}</span>
-                      <span className="text-slate-500">{total.toLocaleString()} / {target.toLocaleString()} ({rate}%)</span>
-                    </div>
-                    <div className="w-full bg-slate-100 rounded-full h-2.5">
-                      <div className={`h-2.5 rounded-full ${Number(rate) >= 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
-                        style={{ width: `${Math.min(Number(rate), 100)}%` }}>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+              {indicators
+  .filter(ind => ind.target > 0)          // 목표가 있는 지표만
+  // .filter(ind => ind.weight > 0)       // (선택) 소계 제외하고 싶으면 이 줄 추가
+  .map(ind => {
+    const total = (Number(ind.resultSem1) || 0) + (Number(ind.resultSem2) || 0);
+    const rate = ind.target > 0 ? ((total / ind.target) * 100).toFixed(1) : 0;
+    return (
+      <div key={ind.id}>
+        <div className="flex justify-between text-sm mb-1">
+          <span className="font-medium text-slate-700">{ind.name}</span>
+          <span className="text-slate-500">
+            {total.toLocaleString()} / {ind.target.toLocaleString()} ({rate}%)
+          </span>
         </div>
-      );
-
+        <div className="w-full bg-slate-100 rounded-full h-2.5">
+          <div
+            className={`h-2.5 rounded-full ${Number(rate) >= 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
+            style={{ width: `${Math.min(Number(rate), 100)}%` }}
+          ></div>
+        </div>
+      </div>
+    );
+  })}
       const PerformanceView = () => (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex justify-between items-center">
@@ -921,3 +921,4 @@
   </script>
 </body>
 </html>
+
