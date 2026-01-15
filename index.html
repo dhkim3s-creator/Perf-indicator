@@ -443,7 +443,7 @@
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <h3 className="text-lg font-bold text-slate-800 mb-4">지표별 달성 현황</h3>
             <div className="space-y-4">
-              {indicators.slice(0, 4).map(ind => {
+              {indicators.map(ind => {
                 const total = parseNumberLike(ind.resultSem1) + parseNumberLike(ind.resultSem2);
                 const target = parseNumberLike(ind.target);
                 const rate = target > 0 ? ((total / target) * 100).toFixed(1) : "0.0";
@@ -921,3 +921,4 @@
   </script>
 </body>
 </html>
+
