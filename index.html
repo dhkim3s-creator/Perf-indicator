@@ -601,91 +601,11 @@
             </div>
 
             {/* ✅ 지표별 달성 현황: 지자체+대학 모두 표시 */}
-            {/* ✅ 지표별 달성 현황: 지자체 + 대학 성과지표를 섹션으로 분리해 모두 표시 */}
-<div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-  <div className="flex items-center justify-between mb-4">
-    <h3 className="text-lg font-bold text-slate-800">지표별 달성 현황</h3>
-    <div className="text-xs text-slate-400">지자체 성과지표 + 대학 성과지표(자율성과지표) 모두 표시</div>
-  </div>
-
-  {/* 🔎 표시 개수(원하면 늘릴 수 있음) */}
-  {(() => {
-    const municipalList = (Array.isArray(municipalIndicators) ? municipalIndicators : [])
-      .filter(r => (r?.indicatorName ?? "").toString().trim().length > 0);
-
-    const univList = (Array.isArray(univIndicators) ? univIndicators : [])
-      .filter(r => (r?.indicatorName ?? "").toString().trim().length > 0);
-
-    const renderRows = (rows, prefix) => {
-      if (!rows.length) {
-        return <div className="text-slate-400 text-sm py-6">표시할 지표가 없습니다.</div>;
-      }
-
-      // ✅ 여기서 slice(0, 50) 숫자를 늘리면 더 많이 표시됩니다.
-      return (
-        <div className="space-y-4">
-          {rows.slice(0, 50).map((row) => {
-            const target = Number(row?.target ?? 0) || 0;
-            const sem1 = Number(row?.sem1 ?? 0) || 0;
-            const sem2 = Number(row?.sem2 ?? 0) || 0;
-            const total = sem1 + sem2;
-
-            const rate = target > 0 ? (total / target) * 100 : null;
-            const shownRate = rate === null ? 0 : rate;
-            const width = Math.min(shownRate, 100);
-
-            const title = `${prefix} · ${row.indicatorName}${(row.subItem && row.subItem !== '-') ? ` (${row.subItem})` : ''}`;
-
-            return (
-              <div key={row.id}>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="font-medium text-slate-700">{title}</span>
-                  {target > 0 ? (
-                    <span className="text-slate-500">
-                      {total.toLocaleString()} / {target.toLocaleString()} ({shownRate.toFixed(1)}%)
-                    </span>
-                  ) : (
-                    <span className="text-slate-400">목표 없음</span>
-                  )}
-                </div>
-
-                <div className="w-full bg-slate-100 rounded-full h-2.5">
-                  <div
-                    className={`h-2.5 rounded-full ${target > 0 && shownRate >= 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
-                    style={{ width: `${target > 0 ? width : 0}%` }}
-                  ></div>
-                </div>
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-slate-800">지표별 달성 현황</h3>
+                <div className="text-xs text-slate-400">지자체 + 대학(자율성과지표) 포함</div>
               </div>
-            );
-          })}
-        </div>
-      );
-    };
-
-    return (
-      <div className="space-y-6">
-        {/* 지자체 성과지표 */}
-        <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="font-bold text-slate-800">지자체 성과지표</div>
-            <div className="text-xs text-slate-400">표시 {municipalList.length}건</div>
-          </div>
-          {renderRows(municipalList, "지자체")}
-        </div>
-
-        {/* 대학 성과지표(자율성과지표) */}
-        <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="font-bold text-slate-800">대학 성과지표(자율성과지표)</div>
-            <div className="text-xs text-slate-400">표시 {univList.length}건</div>
-          </div>
-          {renderRows(univList, "대학")}
-        </div>
-      </div>
-    );
-  })()}
-</div>
-
 
               {list.length === 0 ? (
                 <div className="text-slate-500 text-sm">표시할 지표가 없습니다.</div>
@@ -1336,4 +1256,3 @@
   </script>
 </body>
 </html>
-
