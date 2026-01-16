@@ -85,6 +85,11 @@
     }
 
     // =========================
+    // ✅ “삭제할 지표명” (대학 자율성과지표에서 제거 대상)
+    // =========================
+    const REMOVE_UNIV_NAME = "캡스톤/현장실습 연계 비교과 이수";
+
+    // =========================
     // 초기 데이터(정상 기준)
     // =========================
     // [지자체] 성과목표 달성율
@@ -103,7 +108,7 @@
       { id: 204, group: "지자체", indicatorName: "대전형 360°인재 지역 정주 취업자 수", subItem: "기타", unit: "명", baseline: 106, target: 111, sem1: 0, sem2: 0 },
     ];
 
-    // ✅ [대학] 자율성과지표 (업로드 표 기준 2개 모두 “항상” 유지)
+    // ✅ [대학] 자율성과지표 (2개 유지)
     const INITIAL_UNIV = [
       { id: 301, group: "대학", indicatorName: "캡스톤디자인 및 현장실습 연계 비교과 이수학생 수", subItem: "-", unit: "명", baseline: 256, target: 270, sem1: 177, sem2: 0 },
       { id: 302, group: "대학", indicatorName: "표준현장실습 학기제 이수학생 취업률", subItem: "-", unit: "%", baseline: 36.8, target: 0, sem1: 0, sem2: 0 },
@@ -170,7 +175,12 @@
         const univRaw = Array.isArray(raw.univIndicators) ? raw.univIndicators : [];
 
         const municipal = mergeRequiredIndicators(municipalRaw, INITIAL_MUNICIPAL);
-        const univ = mergeRequiredIndicators(univRaw, INITIAL_UNIV);
+
+        // ✅ (핵심) Firebase에 남아있는 REMOVE_UNIV_NAME 지표 제거 + 2개 필수 지표 보강
+        const univClean = (Array.isArray(univRaw) ? univRaw : []).filter(
+          r => (safeText(r?.indicatorName).trim() !== REMOVE_UNIV_NAME)
+        );
+        const univ = mergeRequiredIndicators(univClean, INITIAL_UNIV);
 
         const tasks = Array.isArray(raw.tasks) && raw.tasks.length ? raw.tasks : INITIAL_TASKS;
 
@@ -226,7 +236,10 @@
         } : INITIAL_BUDGET;
 
         const m = mergeRequiredIndicators(municipal, INITIAL_MUNICIPAL);
-        const u = mergeRequiredIndicators(univ, INITIAL_UNIV);
+
+        // ✅ (핵심) 제거 + 보강
+        const uClean = univ.filter(r => safeText(r?.indicatorName).trim() !== REMOVE_UNIV_NAME);
+        const u = mergeRequiredIndicators(uClean, INITIAL_UNIV);
 
         const safeExecuted = Math.max(0, parseNumberLike(budget.executed));
         const safeTotal = Math.max(parseNumberLike(budget.total), safeExecuted);
@@ -256,7 +269,7 @@
       const [loading, setLoading] = useState(true);
       const [saveMsg, setSaveMsg] = useState('');
 
-      // ✅ 세부과제/예산관리에서 쓰는 상태/Ref (대시보드/정량지표 코드는 그대로 유지)
+      // ✅ 세부과제/예산관리에서 쓰는 상태/Ref
       const expenseItemRef = useRef(null);
       const expenseAmountRef = useRef(null);
 
@@ -294,7 +307,14 @@
 
             if (!cancelled) {
               setMunicipalIndicators(migrated.municipalIndicators);
-              setUnivIndicators(migrated.univIndicators);
+
+              // ✅ (이중 안전장치) 로드시점에서도 한 번 더 제거
+              setUnivIndicators(
+                (migrated.univIndicators || []).filter(
+                  r => (safeText(r?.indicatorName).trim() !== REMOVE_UNIV_NAME)
+                )
+              );
+
               setTasks(migrated.tasks);
 
               setBudget(migrated.budget);
@@ -305,7 +325,7 @@
             console.error("Load error:", e);
             if (!cancelled) {
               setMunicipalIndicators(INITIAL_MUNICIPAL);
-              setUnivIndicators(INITIAL_UNIV);
+              setUnivIndicators(INITIAL_UNIV.filter(r => safeText(r.indicatorName).trim() !== REMOVE_UNIV_NAME));
               setTasks(INITIAL_TASKS);
               setBudget(INITIAL_BUDGET);
               setTotalDraft(String(INITIAL_BUDGET.total));
@@ -325,7 +345,10 @@
         try {
           const payload = {
             municipalIndicators,
-            univIndicators,
+            // ✅ 저장할 때도 “삭제 지표”는 같이 저장되지 않게 필터
+            univIndicators: (univIndicators || []).filter(
+              r => safeText(r?.indicatorName).trim() !== REMOVE_UNIV_NAME
+            ),
             tasks,
             budget,
             updatedAt: new Date().toISOString()
@@ -341,7 +364,7 @@
       };
 
       // =========================
-      // 계산  (✅ 대시보드/정량지표 코드는 그대로)
+      // 계산
       // =========================
       const totalBudgetRatio = useMemo(() => {
         const t = parseNumberLike(budget.total);
@@ -352,7 +375,10 @@
 
       const allIndicators = useMemo(() => {
         const m = Array.isArray(municipalIndicators) ? municipalIndicators : [];
-        const u = Array.isArray(univIndicators) ? univIndicators : [];
+        // ✅ 대시보드에도 삭제 지표가 섞이지 않게 필터
+        const u = (Array.isArray(univIndicators) ? univIndicators : []).filter(
+          r => safeText(r?.indicatorName).trim() !== REMOVE_UNIV_NAME
+        );
         return [...m, ...u];
       }, [municipalIndicators, univIndicators]);
 
@@ -369,7 +395,7 @@
       }, [allIndicators]);
 
       // =========================
-      // 지표 변경 핸들러  (✅ 그대로)
+      // 지표 변경 핸들러
       // =========================
       const updateIndicator = (group, id, field, value) => {
         const n = parseNumberLike(value);
@@ -388,7 +414,7 @@
       }, [activeTab, municipalIndicators, univIndicators, tasks, budget, loading, isEditingTotal, editingBudgetId, editingTaskId]);
 
       // =========================
-      // 공용: 달성률 계산  (✅ 그대로)
+      // 공용: 달성률 계산
       // =========================
       const calcRate = (row) => {
         const target = parseNumberLike(row.target);
@@ -399,7 +425,7 @@
       };
 
       // =========================================================
-      // ✅ (추가) 세부과제 기능 구현 (대시보드/정량지표는 건드리지 않음)
+      // 세부과제 기능
       // =========================================================
       const setTaskStatus = (id, status) => {
         setTasks(prev => prev.map(t => t.id === id ? { ...t, status } : t));
@@ -468,7 +494,7 @@
       };
 
       // =========================================================
-      // ✅ (추가) 예산관리 기능 구현 (대시보드/정량지표는 건드리지 않음)
+      // 예산관리 기능
       // =========================================================
       const startEditTotal = () => {
         setTotalDraft(String(parseNumberLike(budget.total)));
@@ -483,7 +509,7 @@
       const saveEditTotal = () => {
         const proposed = parseNumberLike(totalDraft);
         const executed = parseNumberLike(budget.executed);
-        const safeTotal = Math.max(proposed, executed); // 집행액보다 작으면 자동 보정
+        const safeTotal = Math.max(proposed, executed);
         setBudget(prev => ({ ...prev, total: safeTotal }));
         setTotalDraft(String(safeTotal));
         setIsEditingTotal(false);
@@ -565,7 +591,7 @@
       };
 
       // =========================
-      // Dashboard (✅ 그대로)
+      // Dashboard
       // =========================
       const DashboardView = () => {
         const completed = tasks.filter(t => t.status === 'Completed').length;
@@ -681,7 +707,7 @@
       };
 
       // =========================
-      // ✅ 정량지표(✅ 그대로)
+      // 정량지표 테이블
       // =========================
       const IndicatorsTable = ({ title, subtitle, rows, group }) => (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -759,44 +785,50 @@
         </div>
       );
 
-      const PerformanceView = () => (
-        <div className="space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-              <div>
-                <h2 className="text-xl font-bold text-slate-800">정량지표 관리</h2>
-                <p className="text-sm text-slate-500">지자체 성과지표 / 대학 자율성과지표 실적 입력 및 관리</p>
-              </div>
-              <div className="flex items-center gap-3">
-                {saveMsg && <span className="text-sm text-slate-500">{saveMsg}</span>}
-                <button
-                  onClick={saveToFirebase}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  <Icon name="save" className="w-4 h-4" /> 저장하기
-                </button>
+      const PerformanceView = () => {
+        const univRows = (Array.isArray(univIndicators) ? univIndicators : []).filter(
+          r => safeText(r?.indicatorName).trim() !== REMOVE_UNIV_NAME
+        );
+
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+              <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">정량지표 관리</h2>
+                  <p className="text-sm text-slate-500">지자체 성과지표 / 대학 자율성과지표 실적 입력 및 관리</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {saveMsg && <span className="text-sm text-slate-500">{saveMsg}</span>}
+                  <button
+                    onClick={saveToFirebase}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    <Icon name="save" className="w-4 h-4" /> 저장하기
+                  </button>
+                </div>
               </div>
             </div>
+
+            <IndicatorsTable
+              title="[지자체] 성과목표 달성율"
+              subtitle="1차년도 성과지표 및 실적"
+              rows={Array.isArray(municipalIndicators) ? municipalIndicators : []}
+              group="지자체"
+            />
+
+            <IndicatorsTable
+              title="[대학] 자율성과지표"
+              subtitle="1차년도 자율성과지표 및 실적(현재)"
+              rows={univRows}
+              group="대학"
+            />
           </div>
-
-          <IndicatorsTable
-            title="[지자체] 성과목표 달성율"
-            subtitle="1차년도 성과지표 및 실적"
-            rows={Array.isArray(municipalIndicators) ? municipalIndicators : []}
-            group="지자체"
-          />
-
-          <IndicatorsTable
-            title="[대학] 자율성과지표"
-            subtitle="1차년도 자율성과지표 및 실적(현재)"
-            rows={Array.isArray(univIndicators) ? univIndicators : []}
-            group="대학"
-          />
-        </div>
-      );
+        );
+      };
 
       // =========================
-      // ✅ 세부과제 (복구/정상 동작)
+      // ✅ 세부과제 (수정/삭제/추가)
       // =========================
       const TasksView = () => (
         <div className="space-y-6">
@@ -983,7 +1015,7 @@
       );
 
       // =========================
-      // ✅ 예산관리 (복구/정상 동작)
+      // ✅ 예산관리 (수정/삭제/추가)
       // =========================
       const BudgetView = () => {
         const remaining = Math.max(0, parseNumberLike(budget.total) - parseNumberLike(budget.executed));
