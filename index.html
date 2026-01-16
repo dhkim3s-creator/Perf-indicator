@@ -79,15 +79,19 @@
 
     const newId = () => Date.now() + Math.floor(Math.random() * 1000);
 
+    const isSubtotalRow = (row) => {
+      const sub = safeText(row?.subItem, '').replace(/\s+/g, '');
+      return sub.includes('합계') || sub.includes('소계');
+    };
+
     // Lucide Icon
     function Icon({ name, className }) {
       return <i data-lucide={name} className={className}></i>;
     }
 
     // =========================
-    // 초기 데이터(정상 기준)
+    // 초기 데이터
     // =========================
-    // [지자체] 성과목표 달성율 (업로드 표 기반 분류)
     const INITIAL_MUNICIPAL = [
       { id: 101, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "합계", unit: "명", baseline: 1058, target: 1111, sem1: 886, sem2: 270 },
       { id: 102, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "소계(캡스톤디자인)", unit: "명", baseline: 820, target: 861, sem1: 557, sem2: 0 },
@@ -103,7 +107,7 @@
       { id: 204, group: "지자체", indicatorName: "대전형 360°인재 지역 정주 취업자 수", subItem: "기타", unit: "명", baseline: 106, target: 111, sem1: 0, sem2: 0 },
     ];
 
-    // ✅ [대학] 자율성과지표 (요청대로 2개만, 지표명도 요청대로 고정)
+    // ✅ 대학 자율성과지표: 2개 고정
     const INITIAL_UNIV = [
       { id: 301, group: "대학", indicatorName: "캡스톤디자인 및 현장실습 연계 비교과 이수학생 수", subItem: "-", unit: "명", baseline: 256, target: 270, sem1: 177, sem2: 0 },
       { id: 302, group: "대학", indicatorName: "표준현장실습 학기제 이수학생 취업률", subItem: "-", unit: "%", baseline: 36.8, target: 0, sem1: 0, sem2: 0 },
@@ -128,25 +132,23 @@
     };
 
     // =========================
-    // ✅ 대학 자율성과지표 정규화(항상 2개 + 이름 고정)
+    // 대학 자율지표 정규화(항상 2개 + 지표명 고정)
     // =========================
     function normalizeUnivIndicators(inputArr) {
       const arr = Array.isArray(inputArr) ? inputArr : [];
-
-      // id 기준으로 우선 매칭, 없으면 이름으로 추정 매칭
       const byId = new Map(arr.map(x => [parseNumberLike(x.id), x]));
       const findByName = (kwList) => arr.find(x => {
         const n = safeText(x.indicatorName).replace(/\s+/g, '');
         return kwList.some(kw => n.includes(kw.replace(/\s+/g, '')));
       });
 
-      const old301 = byId.get(301) || findByName(["비교과", "연계비교과", "캡스톤/현장실습"]);
+      const old301 = byId.get(301) || findByName(["비교과", "캡스톤/현장실습", "연계비교과"]);
       const old302 = byId.get(302) || findByName(["취업률", "표준현장실습"]);
 
       const makeRow = (id, fixedName, unit, baseline, target, src) => ({
         id,
         group: "대학",
-        indicatorName: fixedName,               // ✅ 지표명 고정
+        indicatorName: fixedName,
         subItem: "-",
         unit,
         baseline: (src ? parseNumberLike(src.baseline) : baseline),
@@ -155,33 +157,16 @@
         sem2:     (src ? parseNumberLike(src.sem2)     : 0),
       });
 
-      // 301은 초기값 기반으로, src가 있으면 값만 가져오되 이름은 고정
-      const row301 = makeRow(
-        301,
-        "캡스톤디자인 및 현장실습 연계 비교과 이수학생 수",
-        "명",
-        256,
-        270,
-        old301
-      );
-
-      const row302 = makeRow(
-        302,
-        "표준현장실습 학기제 이수학생 취업률",
-        "%",
-        36.8,
-        0,
-        old302
-      );
-
-      return [row301, row302];
+      return [
+        makeRow(301, "캡스톤디자인 및 현장실습 연계 비교과 이수학생 수", "명", 256, 270, old301),
+        makeRow(302, "표준현장실습 학기제 이수학생 취업률", "%", 36.8, 0, old302),
+      ];
     }
 
     // =========================
-    // 구버전 데이터 → v2 마이그레이션
+    // 마이그레이션
     // =========================
     function migrateIfNeeded(raw) {
-      // 이미 v2 구조면 그대로(단, 대학지표는 항상 정규화)
       if (raw && (Array.isArray(raw.municipalIndicators) || Array.isArray(raw.univIndicators))) {
         const municipal = Array.isArray(raw.municipalIndicators) && raw.municipalIndicators.length
           ? raw.municipalIndicators
@@ -201,7 +186,6 @@
         return { municipalIndicators: municipal, univIndicators: univ, tasks, budget: { ...budget, executed: safeExecuted, total: safeTotal } };
       }
 
-      // 구버전: indicators 배열이 있던 경우
       if (raw && Array.isArray(raw.indicators)) {
         const old = raw.indicators;
         const municipal = [];
@@ -218,7 +202,7 @@
 
           const row = {
             id: parseNumberLike(x.id) || newId(),
-            group: (category.includes("자율") || name.includes("자율") || category.includes("대학")) ? "대학" : "지자체",
+            group: (category.includes("자율") || category.includes("대학") || name.includes("자율")) ? "대학" : "지자체",
             indicatorName: name,
             subItem: safeText(x.subItem, "-"),
             unit, baseline, target, sem1, sem2
@@ -244,13 +228,7 @@
         return { municipalIndicators: m, univIndicators: u, tasks, budget: { ...budget, executed: safeExecuted, total: safeTotal } };
       }
 
-      // 아무것도 없으면 초기값
-      return {
-        municipalIndicators: INITIAL_MUNICIPAL,
-        univIndicators: normalizeUnivIndicators(INITIAL_UNIV),
-        tasks: INITIAL_TASKS,
-        budget: INITIAL_BUDGET
-      };
+      return { municipalIndicators: INITIAL_MUNICIPAL, univIndicators: normalizeUnivIndicators(INITIAL_UNIV), tasks: INITIAL_TASKS, budget: INITIAL_BUDGET };
     }
 
     // =========================
@@ -299,9 +277,8 @@
             const snap = await db.ref(DB_PATH).get();
             let data = null;
 
-            if (snap.exists()) {
-              data = snap.val();
-            } else {
+            if (snap.exists()) data = snap.val();
+            else {
               const snapV1 = await db.ref("earlyBirdManager/v1").get();
               if (snapV1.exists()) data = snapV1.val();
             }
@@ -342,7 +319,7 @@
         try {
           const payload = {
             municipalIndicators,
-            univIndicators: normalizeUnivIndicators(univIndicators), // ✅ 저장 직전도 정규화
+            univIndicators: normalizeUnivIndicators(univIndicators),
             tasks,
             budget,
             updatedAt: new Date().toISOString()
@@ -386,42 +363,30 @@
       }, [allIndicators]);
 
       // =========================
-      // 지표 변경 핸들러
+      // 지표 변경
       // =========================
       const updateIndicator = (group, id, field, value) => {
         const n = parseNumberLike(value);
         if (group === "지자체") {
           setMunicipalIndicators(prev => prev.map(r => r.id === id ? { ...r, [field]: n } : r));
         } else {
-          // 대학은 항상 2개 고정이므로, id 기반으로만 값 업데이트
           setUnivIndicators(prev => normalizeUnivIndicators(prev).map(r => r.id === id ? { ...r, [field]: n } : r));
         }
       };
 
       // =========================
-      // 세부과제: 상태/추가/수정/삭제 (※ 원본 유지)
+      // 세부과제/예산 (원본 유지)
       // =========================
-      const setTaskStatus = (id, status) => {
-        setTasks(prev => prev.map(t => t.id === id ? { ...t, status } : t));
-      };
+      const setTaskStatus = (id, status) => setTasks(prev => prev.map(t => t.id === id ? { ...t, status } : t));
 
       const addTask = () => {
         const category = safeText(taskCategoryRef.current?.value, '').trim();
         const name = safeText(taskNameRef.current?.value, '').trim();
         const schedule = safeText(taskScheduleRef.current?.value, '').trim();
         const note = safeText(taskNoteRef.current?.value, '').trim();
-
         if (!category || !name) return;
 
-        const newTask = {
-          id: newId(),
-          category,
-          name,
-          schedule,
-          status: "Planned",
-          note
-        };
-
+        const newTask = { id: newId(), category, name, schedule, status: "Planned", note };
         setTasks(prev => [newTask, ...prev]);
 
         if (taskCategoryRef.current) taskCategoryRef.current.value = '';
@@ -454,7 +419,6 @@
         const name = safeText(taskEditDraft.name).trim();
         const schedule = safeText(taskEditDraft.schedule).trim();
         const note = safeText(taskEditDraft.note).trim();
-
         if (!category || !name) return;
 
         setTasks(prev => prev.map(t => t.id === id ? { ...t, category, name, schedule, note } : t));
@@ -467,19 +431,8 @@
         if (editingTaskId === id) cancelEditTask();
       };
 
-      // =========================
-      // 예산: 총예산/집행내역 추가/수정/삭제 (※ 원본 유지)
-      // =========================
-      const startEditTotal = () => {
-        setTotalDraft(String(parseNumberLike(budget.total)));
-        setIsEditingTotal(true);
-      };
-
-      const cancelEditTotal = () => {
-        setTotalDraft(String(parseNumberLike(budget.total)));
-        setIsEditingTotal(false);
-      };
-
+      const startEditTotal = () => { setTotalDraft(String(parseNumberLike(budget.total))); setIsEditingTotal(true); };
+      const cancelEditTotal = () => { setTotalDraft(String(parseNumberLike(budget.total))); setIsEditingTotal(false); };
       const saveEditTotal = () => {
         const proposed = parseNumberLike(totalDraft);
         const executed = parseNumberLike(budget.executed);
@@ -572,7 +525,7 @@
       }, [activeTab, municipalIndicators, univIndicators, tasks, budget, loading, isEditingTotal, editingTaskId, editingBudgetId]);
 
       // =========================
-      // 공용 렌더: 달성률 계산
+      // 달성률 계산
       // =========================
       const calcRate = (row) => {
         const target = parseNumberLike(row.target);
@@ -583,7 +536,7 @@
       };
 
       // =========================
-      // 뷰: Dashboard
+      // Dashboard
       // =========================
       const DashboardView = () => {
         const completed = tasks.filter(t => t.status === 'Completed').length;
@@ -592,7 +545,7 @@
 
         const list = allIndicators
           .filter(r => safeText(r.indicatorName).length)
-          .slice(0, 50);
+          .slice(0, 80);
 
         return (
           <div className="space-y-6">
@@ -654,10 +607,11 @@
               </div>
             </div>
 
+            {/* ✅ 지표별 달성 현황: 합계/소계 굵게 */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-slate-800">지표별 달성 현황</h3>
-                <div className="text-xs text-slate-400">지자체 + 대학(자율성과지표) 포함</div>
+                <div className="text-xs text-slate-400">합계/소계는 굵게 표시</div>
               </div>
 
               {list.length === 0 ? (
@@ -666,8 +620,12 @@
                 <div className="space-y-4">
                   {list.map((row) => {
                     const { total, rate } = calcRate(row);
-                    const labelLeft = `${safeText(row.group, "")} · ${safeText(row.indicatorName, "")}${safeText(row.subItem, "-") !== "-" ? ` (${row.subItem})` : ""}`;
                     const target = parseNumberLike(row.target);
+
+                    const bold = isSubtotalRow(row);
+                    const labelLeft =
+                      `${safeText(row.group, "")} · ${safeText(row.indicatorName, "")}` +
+                      `${safeText(row.subItem, "-") !== "-" ? ` (${row.subItem})` : ""}`;
 
                     const shownRate = rate === null ? 0 : rate;
                     const width = Math.min(shownRate, 100);
@@ -675,9 +633,13 @@
                     return (
                       <div key={row.id}>
                         <div className="flex justify-between text-sm mb-1">
-                          <span className="font-medium text-slate-700">{labelLeft}</span>
+                          <span className={`${bold ? "font-bold text-slate-900" : "font-medium text-slate-700"}`}>
+                            {labelLeft}
+                          </span>
                           {target > 0 ? (
-                            <span className="text-slate-500">{total.toLocaleString()} / {target.toLocaleString()} ({shownRate.toFixed(1)}%)</span>
+                            <span className={`${bold ? "font-bold text-slate-700" : "text-slate-500"}`}>
+                              {total.toLocaleString()} / {target.toLocaleString()} ({shownRate.toFixed(1)}%)
+                            </span>
                           ) : (
                             <span className="text-slate-400">목표 없음</span>
                           )}
@@ -699,7 +661,7 @@
       };
 
       // =========================
-      // 뷰: 정량지표(지자체/대학)
+      // 정량지표(업로드 표 형태로 헤더/라벨 정리)
       // =========================
       const IndicatorsTable = ({ title, subtitle, rows, group }) => (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -709,18 +671,20 @@
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left min-w-[980px]">
-              <thead className="bg-slate-50 text-slate-600 font-medium">
+            <table className="w-full text-sm text-left min-w-[1100px]">
+              <thead className="bg-slate-50 text-slate-700 font-bold">
                 <tr>
-                  <th className="px-6 py-4">지표명</th>
+                  <th className="px-6 py-4">성과지표</th>
                   <th className="px-4 py-4">구성항목</th>
                   <th className="px-4 py-4 text-center">단위</th>
                   <th className="px-4 py-4 text-right">기준값</th>
                   <th className="px-4 py-4 text-right">목표(A)</th>
                   <th className="px-4 py-4 text-right bg-blue-50">상반기 실적</th>
-                  <th className="px-4 py-4 text-right bg-blue-50">하반기 실적</th>
-                  <th className="px-4 py-4 text-right font-bold text-indigo-900 bg-indigo-50">합계(B)</th>
-                  <th className="px-4 py-4 text-right font-bold text-indigo-900 bg-indigo-50">달성률(%)</th>
+                  {/* ✅ 업로드 표처럼: 하반기 예정(C) */}
+                  <th className="px-4 py-4 text-right bg-blue-50">하반기 예정(C)</th>
+                  {/* ✅ 업로드 표처럼: 2025 실적(계B) */}
+                  <th className="px-4 py-4 text-right font-bold text-indigo-900 bg-indigo-50">2025 실적(계B)</th>
+                  <th className="px-4 py-4 text-right font-bold text-indigo-900 bg-indigo-50">달성률(%) (B/A)</th>
                 </tr>
               </thead>
 
@@ -732,38 +696,54 @@
                 ) : rows.map((r) => {
                   const { total, rate } = calcRate(r);
                   const target = parseNumberLike(r.target);
+                  const bold = isSubtotalRow(r);
+
                   return (
-                    <tr key={r.id} className="hover:bg-slate-50">
-                      <td className="px-6 py-4 font-medium text-slate-800">{safeText(r.indicatorName, "")}</td>
-                      <td className="px-4 py-4 text-slate-600">{safeText(r.subItem, "-")}</td>
-                      <td className="px-4 py-4 text-center text-slate-500">{safeText(r.unit, "")}</td>
-                      <td className="px-4 py-4 text-right text-slate-600">{parseNumberLike(r.baseline).toLocaleString()}</td>
-                      <td className="px-4 py-4 text-right text-slate-600">{target.toLocaleString()}</td>
+                    <tr key={r.id} className={`${bold ? "bg-slate-50/60" : "bg-white"} hover:bg-slate-50`}>
+                      <td className={`px-6 py-4 ${bold ? "font-bold text-slate-900" : "font-medium text-slate-800"}`}>
+                        {safeText(r.indicatorName, "")}
+                      </td>
+                      <td className={`px-4 py-4 ${bold ? "font-bold text-slate-800" : "text-slate-600"}`}>
+                        {safeText(r.subItem, "-")}
+                      </td>
+                      <td className="px-4 py-4 text-center text-slate-600">{safeText(r.unit, "")}</td>
+                      <td className={`px-4 py-4 text-right ${bold ? "font-bold text-slate-800" : "text-slate-700"}`}>
+                        {parseNumberLike(r.baseline).toLocaleString()}
+                      </td>
+                      <td className={`px-4 py-4 text-right ${bold ? "font-bold text-slate-800" : "text-slate-700"}`}>
+                        {target.toLocaleString()}
+                      </td>
 
                       <td className="px-4 py-4 text-right bg-blue-50/30">
                         <input
                           type="text"
                           inputMode="numeric"
-                          className="w-24 text-right p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                          className={`w-24 text-right p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none ${bold ? "font-bold" : ""}`}
                           value={r.sem1}
                           onChange={(e) => updateIndicator(group, r.id, 'sem1', e.target.value)}
                         />
                       </td>
 
+                      {/* ✅ sem2를 '하반기 예정(C)'로 표기 */}
                       <td className="px-4 py-4 text-right bg-blue-50/30">
                         <input
                           type="text"
                           inputMode="numeric"
-                          className="w-24 text-right p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                          className={`w-24 text-right p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none ${bold ? "font-bold" : ""}`}
                           value={r.sem2}
                           onChange={(e) => updateIndicator(group, r.id, 'sem2', e.target.value)}
                         />
                       </td>
 
-                      <td className="px-4 py-4 text-right font-bold text-indigo-700 bg-indigo-50/30">{total.toLocaleString()}</td>
+                      <td className="px-4 py-4 text-right font-bold text-indigo-700 bg-indigo-50/30">
+                        {total.toLocaleString()}
+                      </td>
+
                       <td className="px-4 py-4 text-right font-bold bg-indigo-50/30">
                         {target > 0 ? (
-                          <span className={`${(rate ?? 0) >= 100 ? 'text-emerald-600' : 'text-orange-500'}`}>{(rate ?? 0).toFixed(1)}%</span>
+                          <span className={`${(rate ?? 0) >= 100 ? 'text-emerald-600' : 'text-orange-600'}`}>
+                            {(rate ?? 0).toFixed(1)}%
+                          </span>
                         ) : (
                           <span className="text-slate-400">-</span>
                         )}
@@ -783,7 +763,7 @@
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
               <div>
                 <h2 className="text-xl font-bold text-slate-800">정량지표 관리</h2>
-                <p className="text-sm text-slate-500">지자체 성과지표 / 대학 자율성과지표 실적 입력 및 관리</p>
+                <p className="text-sm text-slate-500">업로드 표 형식(하반기 예정(C), 2025 실적(계B), 달성률(B/A))으로 표시</p>
               </div>
               <div className="flex items-center gap-3">
                 {saveMsg && <span className="text-sm text-slate-500">{saveMsg}</span>}
@@ -814,7 +794,7 @@
       );
 
       // =========================
-      // 뷰: 세부과제(※ 원본 그대로 유지)
+      // 세부과제(원본 유지)
       // =========================
       const TasksView = () => (
         <div className="space-y-6">
@@ -1001,7 +981,7 @@
       );
 
       // =========================
-      // 뷰: 예산(※ 원본 그대로 유지)
+      // 예산관리(원본 유지)
       // =========================
       const BudgetView = () => {
         const remaining = Math.max(0, parseNumberLike(budget.total) - parseNumberLike(budget.executed));
@@ -1055,17 +1035,11 @@
                           onKeyDown={(e) => { if (e.key === 'Enter') saveEditTotal(); }}
                         />
                         <div className="flex justify-center gap-2">
-                          <button
-                            onClick={saveEditTotal}
-                            className="px-3 py-1.5 text-xs rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
-                          >저장</button>
-                          <button
-                            onClick={cancelEditTotal}
-                            className="px-3 py-1.5 text-xs rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300"
-                          >취소</button>
+                          <button onClick={saveEditTotal} className="px-3 py-1.5 text-xs rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">저장</button>
+                          <button onClick={cancelEditTotal} className="px-3 py-1.5 text-xs rounded-lg bg-slate-200 text-slate-700 hover:bg-slate-300">취소</button>
                         </div>
                         <div className="text-[11px] text-slate-400">
-                          ※ 집행액({parseNumberLike(budget.executed).toLocaleString()})보다 작게 입력하면 자동으로 집행액으로 보정됩니다.
+                          ※ 집행액({parseNumberLike(budget.executed).toLocaleString()})보다 작게 입력하면 자동 보정됩니다.
                         </div>
                       </div>
                     )}
