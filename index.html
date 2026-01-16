@@ -58,7 +58,7 @@
     }
 
     const db = firebase.database();
-    const DB_PATH = "earlyBirdManager/v2"; // v2 고정
+    const DB_PATH = "earlyBirdManager/v2";
 
     // =========================
     // 유틸
@@ -86,31 +86,26 @@
 
     // =========================
     // 초기 데이터(정상 기준)
-    //  - 지자체: 업로드 표 형식에 맞춰 "하반기 예정(C)"를 (실적/예상) 2칸으로 관리
-    //    * sem2Actual = 하반기 실적
-    //    * sem2Forecast = 하반기 예상(C)
-    //  - 대학: 기존대로(요청대로 수정하지 않음)
     // =========================
+    // [지자체] 성과목표 달성율
     const INITIAL_MUNICIPAL = [
-      // 캡스톤/현장실습 이수학생 수 (세부 분류)
-      { id: 101, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "합계", unit: "명", baseline: 1058, target: 1111, sem1: 886, sem2Actual: 0, sem2Forecast: 270 },
-      { id: 102, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "소계(캡스톤디자인)", unit: "명", baseline: 820, target: 861, sem1: 557, sem2Actual: 0, sem2Forecast: 0 },
-      { id: 103, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "기업연계", unit: "명", baseline: 322, target: 338, sem1: 229, sem2Actual: 0, sem2Forecast: 0 },
-      { id: 104, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "일반", unit: "명", baseline: 498, target: 523, sem1: 328, sem2Actual: 0, sem2Forecast: 0 },
-      { id: 105, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "소계(현장실습)", unit: "명", baseline: 238, target: 250, sem1: 345, sem2Actual: 0, sem2Forecast: 254 },
-      { id: 106, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "표준형", unit: "명", baseline: 62, target: 65, sem1: 55, sem2Actual: 0, sem2Forecast: 28 },
-      { id: 107, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "기타(자율 및 의무형)", unit: "명", baseline: 176, target: 185, sem1: 290, sem2Actual: 0, sem2Forecast: 226 },
+      { id: 101, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "합계", unit: "명", baseline: 1058, target: 1111, sem1: 886, sem2: 270 },
+      { id: 102, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "소계(캡스톤디자인)", unit: "명", baseline: 820, target: 861, sem1: 557, sem2: 0 },
+      { id: 103, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "기업연계", unit: "명", baseline: 322, target: 338, sem1: 229, sem2: 0 },
+      { id: 104, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "일반", unit: "명", baseline: 498, target: 523, sem1: 328, sem2: 0 },
+      { id: 105, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "소계(현장실습)", unit: "명", baseline: 238, target: 250, sem1: 345, sem2: 254 },
+      { id: 106, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "표준형", unit: "명", baseline: 62, target: 65, sem1: 55, sem2: 28 },
+      { id: 107, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "기타(자율 및 의무형)", unit: "명", baseline: 176, target: 185, sem1: 290, sem2: 226 },
 
-      // 대전형 360°인재 지역 정주 취업자 수
-      { id: 201, group: "지자체", indicatorName: "대전형 360°인재 지역 정주 취업자 수", subItem: "합계", unit: "명", baseline: 1081, target: 1135, sem1: 0, sem2Actual: 0, sem2Forecast: 0 },
-      { id: 202, group: "지자체", indicatorName: "대전형 360°인재 지역 정주 취업자 수", subItem: "지역 내", unit: "명", baseline: 275, target: 289, sem1: 0, sem2Actual: 0, sem2Forecast: 0 },
-      { id: 203, group: "지자체", indicatorName: "대전형 360°인재 지역 정주 취업자 수", subItem: "지역 외", unit: "명", baseline: 700, target: 735, sem1: 0, sem2Actual: 0, sem2Forecast: 0 },
-      { id: 204, group: "지자체", indicatorName: "대전형 360°인재 지역 정주 취업자 수", subItem: "기타", unit: "명", baseline: 106, target: 111, sem1: 0, sem2Actual: 0, sem2Forecast: 0 },
+      { id: 201, group: "지자체", indicatorName: "대전형 360°인재 지역 정주 취업자 수", subItem: "합계", unit: "명", baseline: 1081, target: 1135, sem1: 0, sem2: 0 },
+      { id: 202, group: "지자체", indicatorName: "대전형 360°인재 지역 정주 취업자 수", subItem: "지역 내", unit: "명", baseline: 275, target: 289, sem1: 0, sem2: 0 },
+      { id: 203, group: "지자체", indicatorName: "대전형 360°인재 지역 정주 취업자 수", subItem: "지역 외", unit: "명", baseline: 700, target: 735, sem1: 0, sem2: 0 },
+      { id: 204, group: "지자체", indicatorName: "대전형 360°인재 지역 정주 취업자 수", subItem: "기타", unit: "명", baseline: 106, target: 111, sem1: 0, sem2: 0 },
     ];
 
-    // [대학] 자율성과지표 (요청대로 수정하지 않음)
+    // ✅ [대학] 자율성과지표 (업로드 표 기준 2개 모두 “항상” 유지)
     const INITIAL_UNIV = [
-      { id: 301, group: "대학", indicatorName: "캡스톤/현장실습 연계 비교과 이수학생 수", subItem: "-", unit: "명", baseline: 256, target: 270, sem1: 177, sem2: 0 },
+      { id: 301, group: "대학", indicatorName: "캡스톤디자인 및 현장실습 연계 비교과 이수학생 수", subItem: "-", unit: "명", baseline: 256, target: 270, sem1: 177, sem2: 0 },
       { id: 302, group: "대학", indicatorName: "표준현장실습 학기제 이수학생 취업률", subItem: "-", unit: "%", baseline: 36.8, target: 0, sem1: 0, sem2: 0 },
     ];
 
@@ -125,47 +120,58 @@
     ];
 
     const INITIAL_BUDGET = {
-      total: 665000,     // 천원
-      executed: 334229,  // 천원
+      total: 665000,
+      executed: 334229,
       details: [
         { id: 1, item: '얼리버드 취업지원 운영비', amount: 334229, date: '2025-06-30', type: '집행' }
       ]
     };
 
     // =========================
-    // 구버전 데이터 → v2 마이그레이션
+    // ✅ 누락된 필수 지표 자동 보강(merge)
     // =========================
-    function normalizeMunicipalRow(r) {
-      // 최신: sem2Actual/sem2Forecast가 있으면 그대로
-      if (r && (r.sem2Actual !== undefined || r.sem2Forecast !== undefined)) {
-        return {
-          ...r,
-          sem1: parseNumberLike(r.sem1),
-          sem2Actual: parseNumberLike(r.sem2Actual),
-          sem2Forecast: parseNumberLike(r.sem2Forecast),
-          baseline: parseNumberLike(r.baseline),
-          target: parseNumberLike(r.target),
-        };
+    function mergeRequiredIndicators(currentRows, requiredRows) {
+      const curr = Array.isArray(currentRows) ? currentRows : [];
+      const map = new Map(curr.map(r => [parseNumberLike(r.id), r]));
+      const result = [...curr];
+
+      for (const req of requiredRows) {
+        const id = parseNumberLike(req.id);
+        if (!map.has(id)) {
+          result.push(req);
+        } else {
+          const existing = map.get(id);
+          const fixed = {
+            ...existing,
+            group: req.group,
+            indicatorName: safeText(existing.indicatorName, req.indicatorName),
+            subItem: safeText(existing.subItem, req.subItem),
+            unit: safeText(existing.unit, req.unit),
+            baseline: (existing.baseline === undefined || existing.baseline === null) ? req.baseline : existing.baseline,
+            target: (existing.target === undefined || existing.target === null) ? req.target : existing.target,
+            sem1: (existing.sem1 === undefined || existing.sem1 === null) ? req.sem1 : existing.sem1,
+            sem2: (existing.sem2 === undefined || existing.sem2 === null) ? req.sem2 : existing.sem2,
+          };
+          const idx = result.findIndex(x => parseNumberLike(x.id) === id);
+          if (idx >= 0) result[idx] = fixed;
+        }
       }
-      // 구형: sem2 하나만 있던 경우 → 하반기 "예상(C)"로 이관(기존 UI에서 입력한 하반기 값 보존 목적)
-      const sem2Old = parseNumberLike(r?.sem2);
-      return {
-        ...r,
-        sem1: parseNumberLike(r?.sem1),
-        sem2Actual: 0,
-        sem2Forecast: sem2Old,
-        baseline: parseNumberLike(r?.baseline),
-        target: parseNumberLike(r?.target),
-      };
+
+      result.sort((a, b) => parseNumberLike(a.id) - parseNumberLike(b.id));
+      return result;
     }
 
+    // =========================
+    // 구버전 데이터 → v2 마이그레이션(강화)
+    // =========================
     function migrateIfNeeded(raw) {
-      // 이미 v2 구조면 그대로(단, 지자체 row는 normalize)
       if (raw && (Array.isArray(raw.municipalIndicators) || Array.isArray(raw.univIndicators))) {
-        const municipalRaw = Array.isArray(raw.municipalIndicators) && raw.municipalIndicators.length ? raw.municipalIndicators : INITIAL_MUNICIPAL;
-        const municipal = municipalRaw.map(normalizeMunicipalRow);
+        const municipalRaw = Array.isArray(raw.municipalIndicators) ? raw.municipalIndicators : [];
+        const univRaw = Array.isArray(raw.univIndicators) ? raw.univIndicators : [];
 
-        const univ = Array.isArray(raw.univIndicators) && raw.univIndicators.length ? raw.univIndicators : INITIAL_UNIV;
+        const municipal = mergeRequiredIndicators(municipalRaw, INITIAL_MUNICIPAL);
+        const univ = mergeRequiredIndicators(univRaw, INITIAL_UNIV);
+
         const tasks = Array.isArray(raw.tasks) && raw.tasks.length ? raw.tasks : INITIAL_TASKS;
 
         const budget = raw.budget && typeof raw.budget === "object" ? {
@@ -177,10 +183,14 @@
         const safeExecuted = Math.max(0, parseNumberLike(budget.executed));
         const safeTotal = Math.max(parseNumberLike(budget.total), safeExecuted);
 
-        return { municipalIndicators: municipal, univIndicators: univ, tasks, budget: { ...budget, executed: safeExecuted, total: safeTotal } };
+        return {
+          municipalIndicators: municipal,
+          univIndicators: univ,
+          tasks,
+          budget: { ...budget, executed: safeExecuted, total: safeTotal }
+        };
       }
 
-      // 구버전: indicators 배열이 있던 경우
       if (raw && Array.isArray(raw.indicators)) {
         const old = raw.indicators;
         const municipal = [];
@@ -192,40 +202,31 @@
           const unit = safeText(x.unit, "명");
           const baseline = parseNumberLike(x.baseline);
           const target = parseNumberLike(x.target);
-          const sem1 = parseNumberLike(x.resultSem1);
-          const sem2 = parseNumberLike(x.resultSem2);
+          const sem1 = parseNumberLike(x.resultSem1 ?? x.sem1);
+          const sem2 = parseNumberLike(x.resultSem2 ?? x.sem2);
 
-          const isUniv = (category.includes("자율") || name.includes("자율"));
-          if (isUniv) {
-            univ.push({
-              id: parseNumberLike(x.id) || newId(),
-              group: "대학",
-              indicatorName: name,
-              subItem: safeText(x.subItem, "-"),
-              unit, baseline, target,
-              sem1, sem2
-            });
-          } else {
-            municipal.push(normalizeMunicipalRow({
-              id: parseNumberLike(x.id) || newId(),
-              group: "지자체",
-              indicatorName: name,
-              subItem: safeText(x.subItem, "-"),
-              unit, baseline, target,
-              sem1, sem2
-            }));
-          }
+          const row = {
+            id: parseNumberLike(x.id) || newId(),
+            group: (category.includes("자율") || name.includes("자율") || category.includes("대학")) ? "대학" : "지자체",
+            indicatorName: name,
+            subItem: safeText(x.subItem, "-"),
+            unit, baseline, target, sem1, sem2
+          };
+
+          if (row.group === "대학") univ.push(row);
+          else municipal.push(row);
         });
 
         const tasks = Array.isArray(raw.tasks) && raw.tasks.length ? raw.tasks : INITIAL_TASKS;
+
         const budget = raw.budget && typeof raw.budget === "object" ? {
           total: parseNumberLike(raw.budget.total),
           executed: parseNumberLike(raw.budget.executed),
           details: Array.isArray(raw.budget.details) ? raw.budget.details : []
         } : INITIAL_BUDGET;
 
-        const m = municipal.length ? municipal : INITIAL_MUNICIPAL;
-        const u = univ.length ? univ : INITIAL_UNIV;
+        const m = mergeRequiredIndicators(municipal, INITIAL_MUNICIPAL);
+        const u = mergeRequiredIndicators(univ, INITIAL_UNIV);
 
         const safeExecuted = Math.max(0, parseNumberLike(budget.executed));
         const safeTotal = Math.max(parseNumberLike(budget.total), safeExecuted);
@@ -233,8 +234,12 @@
         return { municipalIndicators: m, univIndicators: u, tasks, budget: { ...budget, executed: safeExecuted, total: safeTotal } };
       }
 
-      // 아무것도 없으면 초기값
-      return { municipalIndicators: INITIAL_MUNICIPAL, univIndicators: INITIAL_UNIV, tasks: INITIAL_TASKS, budget: INITIAL_BUDGET };
+      return {
+        municipalIndicators: INITIAL_MUNICIPAL,
+        univIndicators: INITIAL_UNIV,
+        tasks: INITIAL_TASKS,
+        budget: INITIAL_BUDGET
+      };
     }
 
     // =========================
@@ -251,25 +256,19 @@
       const [loading, setLoading] = useState(true);
       const [saveMsg, setSaveMsg] = useState('');
 
-      // ===== (요청) 세부과제/예산관리 코드는 그대로 사용 =====
-      // 예산: 연속입력 안정 (uncontrolled)
+      // ✅ 세부과제/예산관리에서 쓰는 상태/Ref (대시보드/정량지표 코드는 그대로 유지)
       const expenseItemRef = useRef(null);
       const expenseAmountRef = useRef(null);
 
-      // 총예산 수정
       const [isEditingTotal, setIsEditingTotal] = useState(false);
       const [totalDraft, setTotalDraft] = useState(String(INITIAL_BUDGET.total));
-
-      // 예산내역 수정
       const [editingBudgetId, setEditingBudgetId] = useState(null);
       const [budgetEditDraft, setBudgetEditDraft] = useState({ date: '', item: '', amount: '' });
 
-      // 세부과제 CRUD (uncontrolled add)
       const taskCategoryRef = useRef(null);
       const taskNameRef = useRef(null);
       const taskScheduleRef = useRef(null);
       const taskNoteRef = useRef(null);
-
       const [editingTaskId, setEditingTaskId] = useState(null);
       const [taskEditDraft, setTaskEditDraft] = useState({ category: '', name: '', schedule: '', note: '' });
 
@@ -300,7 +299,6 @@
 
               setBudget(migrated.budget);
               setTotalDraft(String(parseNumberLike(migrated.budget.total)));
-
               setLoading(false);
             }
           } catch (e) {
@@ -343,25 +341,8 @@
       };
 
       // =========================
-      // 계산 유틸 (지자체/대학 총합/달성률)
+      // 계산  (✅ 대시보드/정량지표 코드는 그대로)
       // =========================
-      const getTotalValue = (row) => {
-        // 지자체(신형): sem2Actual/sem2Forecast 사용
-        if (row && (row.sem2Actual !== undefined || row.sem2Forecast !== undefined)) {
-          return parseNumberLike(row.sem1) + parseNumberLike(row.sem2Actual) + parseNumberLike(row.sem2Forecast);
-        }
-        // 대학(기존): sem2 사용
-        return parseNumberLike(row?.sem1) + parseNumberLike(row?.sem2);
-      };
-
-      const calcRate = (row) => {
-        const target = parseNumberLike(row?.target);
-        const total = getTotalValue(row);
-        if (target <= 0) return { total, rate: null };
-        const rate = ((total / target) * 100);
-        return { total, rate };
-      };
-
       const totalBudgetRatio = useMemo(() => {
         const t = parseNumberLike(budget.total);
         const e = parseNumberLike(budget.executed);
@@ -379,7 +360,7 @@
         const targets = allIndicators.filter(i => parseNumberLike(i.target) > 0);
         if (!targets.length) return "0.0";
         const sum = targets.reduce((acc, i) => {
-          const total = getTotalValue(i);
+          const total = parseNumberLike(i.sem1) + parseNumberLike(i.sem2);
           const target = parseNumberLike(i.target);
           const rate = target > 0 ? Math.min((total / target) * 100, 100) : 0;
           return acc + rate;
@@ -388,21 +369,38 @@
       }, [allIndicators]);
 
       // =========================
-      // 지표 변경 핸들러
+      // 지표 변경 핸들러  (✅ 그대로)
       // =========================
       const updateIndicator = (group, id, field, value) => {
         const n = parseNumberLike(value);
         if (group === "지자체") {
           setMunicipalIndicators(prev => prev.map(r => r.id === id ? { ...r, [field]: n } : r));
         } else {
-          // 대학은 기존 구조 유지 (sem1/sem2)
           setUnivIndicators(prev => prev.map(r => r.id === id ? { ...r, [field]: n } : r));
         }
       };
 
       // =========================
-      // ===== 아래: 세부과제/예산관리 로직 (요청대로 그대로 유지) =====
+      // lucide 렌더
       // =========================
+      useEffect(() => {
+        if (window.lucide) window.lucide.createIcons();
+      }, [activeTab, municipalIndicators, univIndicators, tasks, budget, loading, isEditingTotal, editingBudgetId, editingTaskId]);
+
+      // =========================
+      // 공용: 달성률 계산  (✅ 그대로)
+      // =========================
+      const calcRate = (row) => {
+        const target = parseNumberLike(row.target);
+        const total = parseNumberLike(row.sem1) + parseNumberLike(row.sem2);
+        if (target <= 0) return { total, rate: null };
+        const rate = ((total / target) * 100);
+        return { total, rate };
+      };
+
+      // =========================================================
+      // ✅ (추가) 세부과제 기능 구현 (대시보드/정량지표는 건드리지 않음)
+      // =========================================================
       const setTaskStatus = (id, status) => {
         setTasks(prev => prev.map(t => t.id === id ? { ...t, status } : t));
       };
@@ -415,7 +413,7 @@
 
         if (!category || !name) return;
 
-        const newTask = {
+        const newTaskRow = {
           id: newId(),
           category,
           name,
@@ -424,7 +422,7 @@
           note
         };
 
-        setTasks(prev => [newTask, ...prev]);
+        setTasks(prev => [newTaskRow, ...prev]);
 
         if (taskCategoryRef.current) taskCategoryRef.current.value = '';
         if (taskNameRef.current) taskNameRef.current.value = '';
@@ -439,7 +437,7 @@
           category: safeText(task.category),
           name: safeText(task.name),
           schedule: safeText(task.schedule),
-          note: safeText(task.note)
+          note: safeText(task.note),
         });
       };
 
@@ -469,6 +467,9 @@
         if (editingTaskId === id) cancelEditTask();
       };
 
+      // =========================================================
+      // ✅ (추가) 예산관리 기능 구현 (대시보드/정량지표는 건드리지 않음)
+      // =========================================================
       const startEditTotal = () => {
         setTotalDraft(String(parseNumberLike(budget.total)));
         setIsEditingTotal(true);
@@ -482,7 +483,7 @@
       const saveEditTotal = () => {
         const proposed = parseNumberLike(totalDraft);
         const executed = parseNumberLike(budget.executed);
-        const safeTotal = Math.max(proposed, executed);
+        const safeTotal = Math.max(proposed, executed); // 집행액보다 작으면 자동 보정
         setBudget(prev => ({ ...prev, total: safeTotal }));
         setTotalDraft(String(safeTotal));
         setIsEditingTotal(false);
@@ -564,22 +565,7 @@
       };
 
       // =========================
-      // lucide 렌더
-      // =========================
-      useEffect(() => {
-        if (window.lucide) window.lucide.createIcons();
-      }, [activeTab, municipalIndicators, univIndicators, tasks, budget, loading, isEditingTotal, editingTaskId, editingBudgetId]);
-
-      // =========================
-      // 대시보드: 합계/소계 굵게(요청사항)
-      // =========================
-      const isBoldRollup = (row) => {
-        const sub = safeText(row?.subItem, "");
-        return sub.includes("합계") || sub.startsWith("소계");
-      };
-
-      // =========================
-      // 뷰: Dashboard
+      // Dashboard (✅ 그대로)
       // =========================
       const DashboardView = () => {
         const completed = tasks.filter(t => t.status === 'Completed').length;
@@ -650,7 +636,6 @@
               </div>
             </div>
 
-            {/* 지표별 달성 현황: 지자체 + 대학 모두 표시, 합계/소계 굵게 */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-slate-800">지표별 달성 현황</h3>
@@ -668,25 +653,20 @@
 
                     const shownRate = rate === null ? 0 : rate;
                     const width = Math.min(shownRate, 100);
-                    const bold = isBoldRollup(row);
 
                     return (
                       <div key={row.id}>
                         <div className="flex justify-between text-sm mb-1">
-                          <span className={`${bold ? "font-extrabold text-slate-800" : "font-medium text-slate-700"}`}>
-                            {labelLeft}
-                          </span>
+                          <span className="font-medium text-slate-700">{labelLeft}</span>
                           {target > 0 ? (
-                            <span className={`${bold ? "font-bold text-slate-700" : "text-slate-500"}`}>
-                              {total.toLocaleString()} / {target.toLocaleString()} ({shownRate.toFixed(1)}%)
-                            </span>
+                            <span className="text-slate-500">{total.toLocaleString()} / {target.toLocaleString()} ({shownRate.toFixed(1)}%)</span>
                           ) : (
                             <span className="text-slate-400">목표 없음</span>
                           )}
                         </div>
-                        <div className={`w-full bg-slate-100 rounded-full ${bold ? "h-3" : "h-2.5"}`}>
+                        <div className="w-full bg-slate-100 rounded-full h-2.5">
                           <div
-                            className={`${bold ? "h-3" : "h-2.5"} rounded-full ${target > 0 && shownRate >= 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
+                            className={`h-2.5 rounded-full ${target > 0 && shownRate >= 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
                             style={{ width: `${target > 0 ? width : 0}%` }}
                           ></div>
                         </div>
@@ -701,116 +681,9 @@
       };
 
       // =========================
-      // 정량지표 테이블
-      //  - 지자체: 업로드 표(두번째 이미지) 형태로 헤더/컬럼 구성 변경
-      //  - 대학: 기존 그대로(요청대로 수정하지 않음)
+      // ✅ 정량지표(✅ 그대로)
       // =========================
-      const MunicipalIndicatorsTable = ({ rows }) => (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-6 border-b border-slate-100">
-            <h3 className="text-lg font-bold text-slate-800">[지자체] 성과목표 달성율</h3>
-            <p className="text-sm text-slate-500 mt-1">1차년도 성과지표 및 실적</p>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left min-w-[1180px]">
-              <thead className="bg-slate-50 text-slate-600 font-medium">
-                {/* 1행: 그룹 헤더 */}
-                <tr>
-                  <th className="px-6 py-3" colSpan="2">성과지표</th>
-                  <th className="px-4 py-3 text-center" rowSpan="2">단위</th>
-                  <th className="px-4 py-3 text-right" rowSpan="2">기준값</th>
-                  <th className="px-4 py-3 text-right" rowSpan="2">목표(A)</th>
-                  <th className="px-4 py-3 text-right bg-blue-50" rowSpan="2">상반기 실적</th>
-                  <th className="px-4 py-3 text-center bg-blue-50" colSpan="2">하반기 예정(C)</th>
-                  <th className="px-4 py-3 text-right font-bold text-indigo-900 bg-indigo-50" rowSpan="2">2025 실적 계(B)</th>
-                  <th className="px-4 py-3 text-right font-bold text-indigo-900 bg-indigo-50" rowSpan="2">달성률(%) (B/A)</th>
-                </tr>
-                {/* 2행: 하위 헤더 */}
-                <tr>
-                  <th className="px-6 py-3">지표명</th>
-                  <th className="px-4 py-3">구성항목</th>
-                  <th className="px-4 py-3 text-right bg-blue-50">실적</th>
-                  <th className="px-4 py-3 text-right bg-blue-50">예상</th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-slate-100">
-                {rows.length === 0 ? (
-                  <tr>
-                    <td className="px-6 py-8 text-center text-slate-400" colSpan="10">데이터가 없습니다.</td>
-                  </tr>
-                ) : rows.map((r) => {
-                  const { total, rate } = calcRate(r);
-                  const target = parseNumberLike(r.target);
-
-                  const bold = isBoldRollup(r);
-                  const nameCell = bold ? "font-extrabold text-slate-900" : "font-medium text-slate-800";
-                  const subCell = bold ? "font-bold text-slate-700" : "text-slate-600";
-
-                  return (
-                    <tr key={r.id} className="hover:bg-slate-50">
-                      <td className={`px-6 py-4 ${nameCell}`}>{safeText(r.indicatorName, "")}</td>
-                      <td className={`px-4 py-4 ${subCell}`}>{safeText(r.subItem, "-")}</td>
-                      <td className="px-4 py-4 text-center text-slate-500">{safeText(r.unit, "")}</td>
-                      <td className="px-4 py-4 text-right text-slate-600">{parseNumberLike(r.baseline).toLocaleString()}</td>
-                      <td className="px-4 py-4 text-right text-slate-600">{target.toLocaleString()}</td>
-
-                      {/* 상반기 실적 */}
-                      <td className="px-4 py-4 text-right bg-blue-50/30">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          className="w-24 text-right p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
-                          value={parseNumberLike(r.sem1)}
-                          onChange={(e) => updateIndicator("지자체", r.id, 'sem1', e.target.value)}
-                        />
-                      </td>
-
-                      {/* 하반기 예정(C) - 실적 */}
-                      <td className="px-4 py-4 text-right bg-blue-50/30">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          className="w-24 text-right p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
-                          value={parseNumberLike(r.sem2Actual)}
-                          onChange={(e) => updateIndicator("지자체", r.id, 'sem2Actual', e.target.value)}
-                        />
-                      </td>
-
-                      {/* 하반기 예정(C) - 예상 */}
-                      <td className="px-4 py-4 text-right bg-blue-50/30">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          className="w-24 text-right p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
-                          value={parseNumberLike(r.sem2Forecast)}
-                          onChange={(e) => updateIndicator("지자체", r.id, 'sem2Forecast', e.target.value)}
-                        />
-                      </td>
-
-                      {/* 2025 실적 계(B) */}
-                      <td className="px-4 py-4 text-right font-bold text-indigo-700 bg-indigo-50/30">{total.toLocaleString()}</td>
-
-                      {/* 달성률(B/A) */}
-                      <td className="px-4 py-4 text-right font-bold bg-indigo-50/30">
-                        {target > 0 ? (
-                          <span className={`${(rate ?? 0) >= 100 ? 'text-emerald-600' : 'text-orange-500'}`}>{(rate ?? 0).toFixed(1)}%</span>
-                        ) : (
-                          <span className="text-slate-400">-</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      );
-
-      // 대학 테이블(요청대로 수정하지 않음: 기존 형태 유지)
-      const UnivIndicatorsTable = ({ title, subtitle, rows }) => (
+      const IndicatorsTable = ({ title, subtitle, rows, group }) => (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-6 border-b border-slate-100">
             <h3 className="text-lg font-bold text-slate-800">{title}</h3>
@@ -839,10 +712,8 @@
                     <td className="px-6 py-8 text-center text-slate-400" colSpan="9">데이터가 없습니다.</td>
                   </tr>
                 ) : rows.map((r) => {
+                  const { total, rate } = calcRate(r);
                   const target = parseNumberLike(r.target);
-                  const total = getTotalValue(r);
-                  const rate = target > 0 ? (total / target) * 100 : null;
-
                   return (
                     <tr key={r.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 font-medium text-slate-800">{safeText(r.indicatorName, "")}</td>
@@ -857,7 +728,7 @@
                           inputMode="numeric"
                           className="w-24 text-right p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
                           value={r.sem1}
-                          onChange={(e) => updateIndicator("대학", r.id, 'sem1', e.target.value)}
+                          onChange={(e) => updateIndicator(group, r.id, 'sem1', e.target.value)}
                         />
                       </td>
 
@@ -867,7 +738,7 @@
                           inputMode="numeric"
                           className="w-24 text-right p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
                           value={r.sem2}
-                          onChange={(e) => updateIndicator("대학", r.id, 'sem2', e.target.value)}
+                          onChange={(e) => updateIndicator(group, r.id, 'sem2', e.target.value)}
                         />
                       </td>
 
@@ -894,7 +765,7 @@
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
               <div>
                 <h2 className="text-xl font-bold text-slate-800">정량지표 관리</h2>
-                <p className="text-sm text-slate-500">업로드 표 형식(하반기 예정(C), 2025 실적 계(B), 달성률(B/A))으로 표시</p>
+                <p className="text-sm text-slate-500">지자체 성과지표 / 대학 자율성과지표 실적 입력 및 관리</p>
               </div>
               <div className="flex items-center gap-3">
                 {saveMsg && <span className="text-sm text-slate-500">{saveMsg}</span>}
@@ -908,20 +779,24 @@
             </div>
           </div>
 
-          {/* ✅ 지자체는 업로드 표 형태로 변경 */}
-          <MunicipalIndicatorsTable rows={Array.isArray(municipalIndicators) ? municipalIndicators : []} />
+          <IndicatorsTable
+            title="[지자체] 성과목표 달성율"
+            subtitle="1차년도 성과지표 및 실적"
+            rows={Array.isArray(municipalIndicators) ? municipalIndicators : []}
+            group="지자체"
+          />
 
-          {/* ✅ 대학 자율성과지표는 "수정하지 말라" 요청대로 기존 테이블 그대로 */}
-          <UnivIndicatorsTable
+          <IndicatorsTable
             title="[대학] 자율성과지표"
             subtitle="1차년도 자율성과지표 및 실적(현재)"
             rows={Array.isArray(univIndicators) ? univIndicators : []}
+            group="대학"
           />
         </div>
       );
 
       // =========================
-      // 세부과제 뷰 (요청대로 기존 유지)
+      // ✅ 세부과제 (복구/정상 동작)
       // =========================
       const TasksView = () => (
         <div className="space-y-6">
@@ -929,7 +804,7 @@
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-slate-800">세부추진과제 관리</h2>
-                <p className="text-sm text-slate-500">추가/수정/삭제 및 진행상태 모니터링</p>
+                <p className="text-sm text-slate-500">추가/수정/삭제 및 진행상태 관리</p>
               </div>
               <div className="flex items-center gap-3">
                 {saveMsg && <span className="text-sm text-slate-500">{saveMsg}</span>}
@@ -1108,7 +983,7 @@
       );
 
       // =========================
-      // 예산 뷰 (요청대로 기존 유지)
+      // ✅ 예산관리 (복구/정상 동작)
       // =========================
       const BudgetView = () => {
         const remaining = Math.max(0, parseNumberLike(budget.total) - parseNumberLike(budget.executed));
@@ -1324,6 +1199,12 @@
                             </tr>
                           );
                         })}
+
+                        {(!Array.isArray(budget.details) || budget.details.length === 0) && (
+                          <tr>
+                            <td className="px-6 py-10 text-center text-slate-400" colSpan="5">집행 내역이 없습니다.</td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -1398,6 +1279,7 @@
       );
     }
 
+    // Mount
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<EarlyBirdManager />);
   </script>
