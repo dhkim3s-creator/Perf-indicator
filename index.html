@@ -269,12 +269,46 @@
       const [loading, setLoading] = useState(true);
       const [saveMsg, setSaveMsg] = useState('');
 
+      // ✅ (긴급수정 핵심) 입력값을 "문자열"로 임시 보관해서 IME/연속 입력이 끊기지 않게 처리
+      const [indicatorDrafts, setIndicatorDrafts] = useState({});
+      const composingRef = useRef({});
+      const makeDraftKey = (group, id, field) => `${group}:${id}:${field}`;
+
+      const getDraftValue = (group, row, field) => {
+        const k = makeDraftKey(group, row.id, field);
+        if (Object.prototype.hasOwnProperty.call(indicatorDrafts, k)) return indicatorDrafts[k];
+        const v = row?.[field];
+        return (v === null || v === undefined) ? "" : String(v);
+      };
+
+      const setDraftValue = (group, id, field, value) => {
+        const k = makeDraftKey(group, id, field);
+        setIndicatorDrafts(prev => ({ ...prev, [k]: value }));
+      };
+
+      const commitDraftToNumber = (group, id, field) => {
+        const k = makeDraftKey(group, id, field);
+        const raw = Object.prototype.hasOwnProperty.call(indicatorDrafts, k) ? indicatorDrafts[k] : "";
+        const n = parseNumberLike(raw);
+
+        if (group === "지자체") {
+          setMunicipalIndicators(prev => prev.map(r => r.id === id ? { ...r, [field]: n } : r));
+        } else {
+          setUnivIndicators(prev => prev.map(r => r.id === id ? { ...r, [field]: n } : r));
+        }
+
+        // 정리된 숫자 문자열로 다시 넣어주면 표시/계산 안정적
+        setIndicatorDrafts(prev => ({ ...prev, [k]: String(n) }));
+      };
+
       // ✅ 세부과제/예산관리에서 쓰는 상태/Ref
       const expenseItemRef = useRef(null);
       const expenseAmountRef = useRef(null);
 
       const [isEditingTotal, setIsEditingTotal] = useState(false);
       const [totalDraft, setTotalDraft] = useState(String(INITIAL_BUDGET.total));
+      const totalComposingRef = useRef(false);
+
       const [editingBudgetId, setEditingBudgetId] = useState(null);
       const [budgetEditDraft, setBudgetEditDraft] = useState({ date: '', item: '', amount: '' });
 
@@ -393,18 +427,6 @@
         }, 0);
         return (sum / targets.length).toFixed(1);
       }, [allIndicators]);
-
-      // =========================
-      // 지표 변경 핸들러
-      // =========================
-      const updateIndicator = (group, id, field, value) => {
-        const n = parseNumberLike(value);
-        if (group === "지자체") {
-          setMunicipalIndicators(prev => prev.map(r => r.id === id ? { ...r, [field]: n } : r));
-        } else {
-          setUnivIndicators(prev => prev.map(r => r.id === id ? { ...r, [field]: n } : r));
-        }
-      };
 
       // =========================
       // lucide 렌더
@@ -674,7 +696,9 @@
                 <div className="space-y-4">
                   {list.map((row) => {
                     const { total, rate } = calcRate(row);
-                    const labelLeft = `${safeText(row.group, "")} · ${safeText(row.indicatorName, "")}${safeText(row.subItem, "-") !== "-" ? ` (${row.subItem})` : ""}`;
+                    const sub = safeText(row.subItem, "-");
+                    const isSubtotalOrTotal = sub.includes("합계") || sub.includes("소계"); // ✅ 대시보드: 합계/소계 볼드 처리
+                    const labelLeft = `${safeText(row.group, "")} · ${safeText(row.indicatorName, "")}${sub !== "-" ? ` (${sub})` : ""}`;
                     const target = parseNumberLike(row.target);
 
                     const shownRate = rate === null ? 0 : rate;
@@ -683,7 +707,7 @@
                     return (
                       <div key={row.id}>
                         <div className="flex justify-between text-sm mb-1">
-                          <span className="font-medium text-slate-700">{labelLeft}</span>
+                          <span className={`${isSubtotalOrTotal ? "font-bold" : "font-medium"} text-slate-700`}>{labelLeft}</span>
                           {target > 0 ? (
                             <span className="text-slate-500">{total.toLocaleString()} / {target.toLocaleString()} ({shownRate.toFixed(1)}%)</span>
                           ) : (
@@ -707,125 +731,146 @@
       };
 
       // =========================
-      // 정량지표 테이블
+      // 정량지표 테이블 (✅ 연속 입력/IME 안정)
       // =========================
       const IndicatorsTable = ({ title, subtitle, rows, group }) => (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-6 border-b border-slate-100">
-            <h3 className="text-lg font-bold text-slate-800">{title}</h3>
-            <p className="text-sm text-slate-500 mt-1">{subtitle}</p>
-          </div>
+  <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <div className="p-6 border-b border-slate-100">
+      <h3 className="text-lg font-bold text-slate-800">{title}</h3>
+      <p className="text-sm text-slate-500 mt-1">{subtitle}</p>
+    </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left min-w-[980px]">
-              <thead className="bg-slate-50 text-slate-600 font-medium">
-                <tr>
-                  <th className="px-6 py-4">지표명</th>
-                  <th className="px-4 py-4">구성항목</th>
-                  <th className="px-4 py-4 text-center">단위</th>
-                  <th className="px-4 py-4 text-right">기준값</th>
-                  <th className="px-4 py-4 text-right">목표(A)</th>
-                  <th className="px-4 py-4 text-right bg-blue-50">상반기 실적</th>
-                  <th className="px-4 py-4 text-right bg-blue-50">하반기 실적</th>
-                  <th className="px-4 py-4 text-right font-bold text-indigo-900 bg-indigo-50">합계(B)</th>
-                  <th className="px-4 py-4 text-right font-bold text-indigo-900 bg-indigo-50">달성률(%)</th>
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm text-left min-w-[980px]">
+        <thead className="bg-slate-50 text-slate-600 font-medium">
+          <tr>
+            <th className="px-6 py-4">지표명</th>
+            <th className="px-4 py-4">구성항목</th>
+            <th className="px-4 py-4 text-center">단위</th>
+            <th className="px-4 py-4 text-right">기준값</th>
+            <th className="px-4 py-4 text-right">목표(A)</th>
+            <th className="px-4 py-4 text-right bg-blue-50">상반기 실적</th>
+            <th className="px-4 py-4 text-right bg-blue-50">하반기 실적</th>
+            <th className="px-4 py-4 text-right font-bold text-indigo-900 bg-indigo-50">합계(B)</th>
+            <th className="px-4 py-4 text-right font-bold text-indigo-900 bg-indigo-50">달성률(%)</th>
+          </tr>
+        </thead>
+
+        <tbody className="divide-y divide-slate-100">
+          {rows.length === 0 ? (
+            <tr>
+              <td className="px-6 py-8 text-center text-slate-400" colSpan="9">
+                데이터가 없습니다.
+              </td>
+            </tr>
+          ) : (
+            rows.map((r) => {
+              const { total, rate } = calcRate(r);
+              const target = parseNumberLike(r.target);
+
+              return (
+                <tr key={r.id} className="hover:bg-slate-50">
+                  <td className="px-6 py-4 font-medium text-slate-800">
+                    {safeText(r.indicatorName, "")}
+                  </td>
+                  <td className="px-4 py-4 text-slate-600">{safeText(r.subItem, "-")}</td>
+                  <td className="px-4 py-4 text-center text-slate-500">{safeText(r.unit, "")}</td>
+                  <td className="px-4 py-4 text-right text-slate-600">
+                    {parseNumberLike(r.baseline).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-4 text-right text-slate-600">{target.toLocaleString()}</td>
+
+                  {/* ✅ 상반기 실적 (uncontrolled) */}
+                  <td className="px-4 py-4 text-right bg-blue-50/30">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className="w-24 text-right p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      defaultValue={String(r.sem1 ?? 0)}
+                      onBlur={(e) => updateIndicator(group, r.id, "sem1", e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                      }}
+                    />
+                  </td>
+
+                  {/* ✅ 하반기 실적 (문제 해결: sem2도 동일하게 uncontrolled로 변경) */}
+                  <td className="px-4 py-4 text-right bg-blue-50/30">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className="w-24 text-right p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      defaultValue={String(r.sem2 ?? 0)}
+                      onBlur={(e) => updateIndicator(group, r.id, "sem2", e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                      }}
+                    />
+                  </td>
+
+                  <td className="px-4 py-4 text-right font-bold text-indigo-700 bg-indigo-50/30">
+                    {total.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-4 text-right font-bold bg-indigo-50/30">
+                    {target > 0 ? (
+                      <span className={`${(rate ?? 0) >= 100 ? "text-emerald-600" : "text-orange-500"}`}>
+                        {(rate ?? 0).toFixed(1)}%
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">-</span>
+                    )}
+                  </td>
                 </tr>
-              </thead>
+              );
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
 
-              <tbody className="divide-y divide-slate-100">
-                {rows.length === 0 ? (
-                  <tr>
-                    <td className="px-6 py-8 text-center text-slate-400" colSpan="9">데이터가 없습니다.</td>
-                  </tr>
-                ) : rows.map((r) => {
-                  const { total, rate } = calcRate(r);
-                  const target = parseNumberLike(r.target);
-                  return (
-                    <tr key={r.id} className="hover:bg-slate-50">
-                      <td className="px-6 py-4 font-medium text-slate-800">{safeText(r.indicatorName, "")}</td>
-                      <td className="px-4 py-4 text-slate-600">{safeText(r.subItem, "-")}</td>
-                      <td className="px-4 py-4 text-center text-slate-500">{safeText(r.unit, "")}</td>
-                      <td className="px-4 py-4 text-right text-slate-600">{parseNumberLike(r.baseline).toLocaleString()}</td>
-                      <td className="px-4 py-4 text-right text-slate-600">{target.toLocaleString()}</td>
+const PerformanceView = () => {
+  const univRows = (Array.isArray(univIndicators) ? univIndicators : []).filter(
+    (r) => safeText(r?.indicatorName).trim() !== REMOVE_UNIV_NAME
+  );
 
-                      <td className="px-4 py-4 text-right bg-blue-50/30">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          className="w-24 text-right p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                          value={r.sem1}
-                          onChange={(e) => updateIndicator(group, r.id, 'sem1', e.target.value)}
-                        />
-                      </td>
-
-                      <td className="px-4 py-4 text-right bg-blue-50/30">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          className="w-24 text-right p-1 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                          value={r.sem2}
-                          onChange={(e) => updateIndicator(group, r.id, 'sem2', e.target.value)}
-                        />
-                      </td>
-
-                      <td className="px-4 py-4 text-right font-bold text-indigo-700 bg-indigo-50/30">{total.toLocaleString()}</td>
-                      <td className="px-4 py-4 text-right font-bold bg-indigo-50/30">
-                        {target > 0 ? (
-                          <span className={`${(rate ?? 0) >= 100 ? 'text-emerald-600' : 'text-orange-500'}`}>{(rate ?? 0).toFixed(1)}%</span>
-                        ) : (
-                          <span className="text-slate-400">-</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-bold text-slate-800">정량지표 관리</h2>
+            <p className="text-sm text-slate-500">지자체 성과지표 / 대학 자율성과지표 실적 입력 및 관리</p>
+          </div>
+          <div className="flex items-center gap-3">
+            {saveMsg && <span className="text-sm text-slate-500">{saveMsg}</span>}
+            <button
+              onClick={saveToFirebase}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              <Icon name="save" className="w-4 h-4" /> 저장하기
+            </button>
           </div>
         </div>
-      );
+      </div>
 
-      const PerformanceView = () => {
-        const univRows = (Array.isArray(univIndicators) ? univIndicators : []).filter(
-          r => safeText(r?.indicatorName).trim() !== REMOVE_UNIV_NAME
-        );
+      <IndicatorsTable
+        title="[지자체] 성과목표 달성율"
+        subtitle="1차년도 성과지표 및 실적"
+        rows={Array.isArray(municipalIndicators) ? municipalIndicators : []}
+        group="지자체"
+      />
 
-        return (
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-              <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-800">정량지표 관리</h2>
-                  <p className="text-sm text-slate-500">지자체 성과지표 / 대학 자율성과지표 실적 입력 및 관리</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  {saveMsg && <span className="text-sm text-slate-500">{saveMsg}</span>}
-                  <button
-                    onClick={saveToFirebase}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    <Icon name="save" className="w-4 h-4" /> 저장하기
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <IndicatorsTable
-              title="[지자체] 성과목표 달성율"
-              subtitle="1차년도 성과지표 및 실적"
-              rows={Array.isArray(municipalIndicators) ? municipalIndicators : []}
-              group="지자체"
-            />
-
-            <IndicatorsTable
-              title="[대학] 자율성과지표"
-              subtitle="1차년도 자율성과지표 및 실적(현재)"
-              rows={univRows}
-              group="대학"
-            />
-          </div>
-        );
-      };
+      <IndicatorsTable
+        title="[대학] 자율성과지표"
+        subtitle="1차년도 자율성과지표 및 실적(현재)"
+        rows={univRows}
+        group="대학"
+      />
+    </div>
+  );
+};
 
       // =========================
       // ✅ 세부과제 (수정/삭제/추가)
@@ -1015,7 +1060,7 @@
       );
 
       // =========================
-      // ✅ 예산관리 (수정/삭제/추가)
+      // ✅ 예산관리 (총예산 입력 연속 입력/IME 안정)
       // =========================
       const BudgetView = () => {
         const remaining = Math.max(0, parseNumberLike(budget.total) - parseNumberLike(budget.executed));
@@ -1064,10 +1109,10 @@
                           type="text"
                           inputMode="numeric"
                           className="w-full p-2 border border-slate-300 rounded-lg text-center focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                          value={totalDraft}
-                          onChange={(e) => setTotalDraft(e.target.value)}
+                          defaultValue={String(parseNumberLike(budget.total))}
+                          onBlur={(e) => setTotalDraft(e.target.value)}
                           onKeyDown={(e) => { if (e.key === 'Enter') saveEditTotal(); }}
-                        />
+                       />
                         <div className="flex justify-center gap-2">
                           <button
                             onClick={saveEditTotal}
