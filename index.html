@@ -71,21 +71,17 @@
     const Icon = ({ name, className }) => <i data-lucide={name} className={className}></i>;
 
     // ==========================================
-    // 2. 초기 데이터
+    // 2. 초기 데이터 (상위 3줄 삭제 반영)
     // ==========================================
     const INITIAL_MUNICIPAL = [
-      { id: 101, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "합계", unit: "명", baseline: 1058, target: 1111, sem1: 886, sem2: 270 },
-      { id: 102, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "소계(캡스톤디자인)", unit: "명", baseline: 820, target: 861, sem1: 557, sem2: 0 },
-      { id: 103, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "기업연계", unit: "명", baseline: 322, target: 338, sem1: 229, sem2: 0 },
+      // 상위 3줄(합계, 소계, 기업연계) 삭제됨
       { id: 104, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "일반", unit: "명", baseline: 498, target: 523, sem1: 328, sem2: 0 },
       { id: 105, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "소계(현장실습)", unit: "명", baseline: 238, target: 250, sem1: 345, sem2: 254 },
       { id: 106, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "표준형", unit: "명", baseline: 62, target: 65, sem1: 55, sem2: 28 },
       { id: 107, group: "지자체", indicatorName: "캡스톤디자인 및 현장실습 이수학생 수", subItem: "기타(자율 및 의무형)", unit: "명", baseline: 176, target: 185, sem1: 290, sem2: 226 },
 
+      // 2. 대전형 360인재 지역 정주 취업자 수 (합계만 유지)
       { id: 201, group: "지자체", indicatorName: "대전형 360°인재 지역 정주 취업자 수", subItem: "합계", unit: "명", baseline: 1081, target: 1135, sem1: 0, sem2: 0 },
-      { id: 202, group: "지자체", indicatorName: "대전형 360°인재 지역 정주 취업자 수", subItem: "지역 내", unit: "명", baseline: 275, target: 289, sem1: 0, sem2: 0 },
-      { id: 203, group: "지자체", indicatorName: "대전형 360°인재 지역 정주 취업자 수", subItem: "지역 외", unit: "명", baseline: 700, target: 735, sem1: 0, sem2: 0 },
-      { id: 204, group: "지자체", indicatorName: "대전형 360°인재 지역 정주 취업자 수", subItem: "기타", unit: "명", baseline: 106, target: 111, sem1: 0, sem2: 0 },
     ];
 
     const INITIAL_UNIV = [
@@ -116,7 +112,7 @@
             <h3 className="font-bold text-slate-800 flex items-center gap-2">
               <Icon name="table-2" className="w-5 h-5 text-blue-600" /> {title}
             </h3>
-            <span className="text-xs text-slate-400">※ 입력 후 [Enter] 또는 클릭 시 자동 저장/계산</span>
+            <span className="text-xs text-slate-400">※ 값을 입력하면 합계와 달성률이 실시간으로 변경됩니다.</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left min-w-[1100px]">
@@ -136,13 +132,15 @@
               <tbody className="divide-y divide-slate-100">
                 {rows.map((row) => {
                   const target = parseNumberLike(row.target);
-                  const s1 = parseNumberLike(row.sem1);
-                  const s2 = parseNumberLike(row.sem2);
-                  const total = s1 + s2;
+                  const s1 = row.sem1 === 0 ? 0 : (row.sem1 || "");
+                  const s2 = row.sem2 === 0 ? 0 : (row.sem2 || "");
+                  
+                  const total = parseNumberLike(s1) + parseNumberLike(s2);
                   let rate = target > 0 ? (total / target) * 100 : 0;
                   
-                  const isSubtotal = row.subItem.includes("합계") || row.subItem.includes("소계");
-                  const rowClass = isSubtotal ? "bg-slate-50 font-medium" : "hover:bg-slate-50";
+                  // 소계, 합계 볼드체 처리
+                  const isSubtotal = row.subItem && (row.subItem.includes("합계") || row.subItem.includes("소계"));
+                  const rowClass = isSubtotal ? "bg-slate-50 font-bold" : "hover:bg-slate-50";
 
                   let rateColor = "text-slate-600";
                   if(target > 0) {
@@ -158,18 +156,27 @@
                       <td className="px-4 py-3 text-center text-slate-500">{row.unit}</td>
                       <td className="px-4 py-3 text-right text-slate-600">{parseNumberLike(row.baseline).toLocaleString()}</td>
                       <td className="px-4 py-3 text-right text-slate-800 font-medium">{target.toLocaleString()}</td>
+                      
                       <td className="px-4 py-2 text-right input-cell border-l border-white">
-                        <input type="text" className="w-full text-right p-1.5 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm"
-                          defaultValue={row.sem1 === 0 ? "" : String(row.sem1 ?? "")} placeholder="0"
-                          onBlur={(e) => onUpdate(group, row.id, 'sem1', e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />
+                        <input 
+                          type="number" 
+                          className={`w-full text-right p-1.5 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm ${isSubtotal ? 'font-bold' : ''}`}
+                          value={s1} 
+                          placeholder="0"
+                          onChange={(e) => onUpdate(group, row.id, 'sem1', e.target.value)}
+                        />
                       </td>
+                      
                       <td className="px-4 py-2 text-right input-cell border-l border-white">
-                        <input type="text" className="w-full text-right p-1.5 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm"
-                          defaultValue={row.sem2 === 0 ? "" : String(row.sem2 ?? "")} placeholder="0"
-                          onBlur={(e) => onUpdate(group, row.id, 'sem2', e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />
+                        <input 
+                          type="number" 
+                          className={`w-full text-right p-1.5 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm ${isSubtotal ? 'font-bold' : ''}`}
+                          value={s2} 
+                          placeholder="0"
+                          onChange={(e) => onUpdate(group, row.id, 'sem2', e.target.value)}
+                        />
                       </td>
+                      
                       <td className="px-4 py-3 text-right result-cell border-l border-slate-200">{total.toLocaleString()}</td>
                       <td className={`px-4 py-3 text-right result-cell border-l border-slate-200 ${rateColor}`}>{target > 0 ? `${rate.toFixed(1)}%` : "-"}</td>
                     </tr>
@@ -195,10 +202,7 @@
         const category = categoryRef.current?.value.trim();
         const name = nameRef.current?.value.trim();
         if(!category || !name) return;
-        
-        // ✅ 일정(schedule)을 날짜 값으로 가져옴
         const schedule = scheduleRef.current?.value || todayISO();
-
         const newTask = {
            id: newId(), category, name, 
            schedule, 
@@ -206,7 +210,7 @@
         };
         setTasks(prev => [newTask, ...prev]);
         categoryRef.current.value = ''; nameRef.current.value = ''; 
-        scheduleRef.current.value = todayISO(); // 등록 후 오늘 날짜로 리셋
+        scheduleRef.current.value = todayISO();
         noteRef.current.value = '';
       };
 
@@ -229,10 +233,7 @@
              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4 bg-slate-50 p-4 rounded-lg">
                 <input ref={categoryRef} className="p-2 border rounded" placeholder="분류 (예: 취업지원)" />
                 <input ref={nameRef} className="p-2 border rounded md:col-span-2" placeholder="과제명" />
-                
-                {/* ✅ 일정 입력 필드: 달력형(date)으로 변경 */}
                 <input ref={scheduleRef} type="date" className="p-2 border rounded text-slate-600" defaultValue={todayISO()} />
-                
                 <input ref={noteRef} className="p-2 border rounded md:col-span-4" placeholder="비고" />
                 <button onClick={addTask} className="bg-slate-900 text-white rounded font-bold hover:bg-slate-800 p-2 md:col-span-4">+ 과제 추가</button>
              </div>
@@ -245,10 +246,7 @@
                            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2 w-full">
                               <input value={draft.category} onChange={e=>setDraft({...draft, category:e.target.value})} className="p-1 border rounded" placeholder="분류"/>
                               <input value={draft.name} onChange={e=>setDraft({...draft, name:e.target.value})} className="p-1 border rounded" placeholder="과제명"/>
-                              
-                              {/* ✅ 수정 모드: 일정 입력 필드도 달력형(date)으로 변경 */}
                               <input type="date" value={draft.schedule} onChange={e=>setDraft({...draft, schedule:e.target.value})} className="p-1 border rounded"/>
-                              
                               <input value={draft.note} onChange={e=>setDraft({...draft, note:e.target.value})} className="p-1 border rounded" placeholder="비고"/>
                            </div>
                         ) : (
@@ -293,10 +291,7 @@
       const [editingDetailId, setEditingDetailId] = useState(null);
       const [detailDraft, setDetailDraft] = useState({});
 
-      // ✅ 잔액 계산 로직 (총예산 - 집행액) -> 렌더링 시 자동 계산 (연동)
       const remaining = Math.max(0, parseNumberLike(budget.total) - parseNumberLike(budget.executed));
-      
-      // ✅ 집행률 계산 로직 (집행액 / 총예산 * 100) -> 렌더링 시 자동 계산 (연동)
       const ratio = parseNumberLike(budget.total) > 0 
         ? ((parseNumberLike(budget.executed) / parseNumberLike(budget.total)) * 100).toFixed(1) 
         : 0;
@@ -317,7 +312,6 @@
 
       const saveTotal = () => {
          const val = parseNumberLike(totalDraft);
-         // 총예산 변경 시, state가 업데이트되면서 잔액/집행률도 자동 재계산됨
          setBudget({...budget, total: val}); 
          setIsEditingTotal(false);
       };
@@ -401,7 +395,6 @@
                <div className="border-t border-slate-100 pt-4">
                   <h3 className="font-bold text-slate-700 mb-3">집행 내역 등록</h3>
                   <div className="flex flex-col md:flex-row gap-2 mb-4">
-                     {/* ✅ 일자 입력 필드 추가 */}
                      <input ref={dateRef} type="date" className="p-2 border rounded w-full md:w-40 text-slate-600" defaultValue={todayISO()} />
                      <input ref={itemRef} className="flex-1 p-2 border rounded" placeholder="항목명 (예: 회의비)" />
                      <input ref={amountRef} type="number" className="w-full md:w-32 p-2 border rounded" placeholder="금액 (천원)" />
@@ -469,7 +462,7 @@
       }, []);
 
       const handleUpdate = (group, id, field, value) => {
-        const num = parseNumberLike(value);
+        const num = value === "" ? "" : parseNumberLike(value);
         const targetSetter = group === "지자체" ? setMunicipalData : setUnivData;
         targetSetter(prev => prev.map(item => item.id === id ? { ...item, [field]: num } : item));
       };
@@ -514,28 +507,7 @@
 
           {tab === 'dashboard' && (
              <div className="space-y-6">
-                {/* 상단 요약 카드 */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                   <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                      <div className="text-slate-500 font-medium mb-2 flex items-center gap-2"><Icon name="target" className="w-4 h-4"/> 지표 달성률 (평균)</div>
-                      <div className="text-3xl font-bold text-emerald-600">{avgRate}%</div>
-                      <div className="w-full bg-slate-100 h-2 rounded-full mt-2 overflow-hidden"><div className="bg-emerald-500 h-full" style={{width:`${Math.min(avgRate,100)}%`}}></div></div>
-                   </div>
-                   <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                      <div className="text-slate-500 font-medium mb-2 flex items-center gap-2"><Icon name="pie-chart" className="w-4 h-4"/> 예산 집행률</div>
-                      <div className="text-3xl font-bold text-blue-600">{budgetRate}%</div>
-                      <div className="w-full bg-slate-100 h-2 rounded-full mt-2 overflow-hidden"><div className="bg-blue-500 h-full" style={{width:`${Math.min(budgetRate,100)}%`}}></div></div>
-                   </div>
-                   <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                      <div className="text-slate-500 font-medium mb-2 flex items-center gap-2"><Icon name="list-todo" className="w-4 h-4"/> 과제 진행</div>
-                      <div className="flex justify-between items-end">
-                         <div className="text-3xl font-bold text-slate-800">{tasks.length}건</div>
-                         <div className="text-sm text-slate-400 bg-slate-100 px-2 py-1 rounded">완료: {tasks.filter(t=>t.status==='Completed').length}건</div>
-                      </div>
-                   </div>
-                </div>
-
-                {/* 지표별 달성 현황 (그래프) */}
+                {/* ✅ 복구된 지표별 달성 현황 (그래프) */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                     <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                         <Icon name="bar-chart-3" className="w-5 h-5 text-blue-600"/> 지표별 달성 현황
@@ -545,7 +517,7 @@
                             const target = parseNumberLike(row.target);
                             const current = parseNumberLike(row.sem1) + parseNumberLike(row.sem2);
                             const rate = target > 0 ? (current / target) * 100 : 0;
-                            const isSubtotal = row.subItem.includes('소계') || row.subItem.includes('합계');
+                            const isSubtotal = row.subItem && (row.subItem.includes('소계') || row.subItem.includes('합계'));
                             
                             // 그래프 색상 로직
                             let barColor = 'bg-blue-500';
